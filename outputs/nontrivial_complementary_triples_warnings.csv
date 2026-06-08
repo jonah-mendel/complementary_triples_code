@@ -1,0 +1,3 @@
+"base_field_degree","base_field_discriminant","algebra_discriminant","order_discriminant","order_index","order_label","order_identifier","order_type","class_number","warning_row","norm_bound","T_row","ramified_subset_count","ramified_subset","warning"
+"2","8","18:[ 0, 3 ]","18:[ 0, 3 ]","1118","main","1118","4","1","1","7","23","1","{ 9:[ 3, 0 ] }","Expected exponent bound exceeded while scanning T = { P_gen=[3, 0] | P_norm=9 }: need exponent 3 at P_gen=[0, -1] | P_norm=2."
+"2","8","18:[ 0, 3 ]","18:[ 0, 3 ]","1118","main","1118","4","1","2","13","25","2","{ 2:[ 0, 1 ], 9:[ 3, 0 ] }","Expected exponent bound exceeded while scanning T = { P_gen=[0, -1] | P_norm=2, P_gen=[3, 0] | P_norm=9 }: need exponent 3 at P_gen=[0, -1] | P_norm=2."
