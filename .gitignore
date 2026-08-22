@@ -5,8 +5,6 @@
 __pycache__/
 *.py[cod]
 
-# Downloaded external data; see data/README.md.
 data/smalltypenumber.m
 
-# Generated outputs from verification runs.
-outputs/test_*.csv
+.reproduce-stage-*/

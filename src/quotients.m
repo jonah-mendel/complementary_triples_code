@@ -1,34 +1,31 @@
 // ============================================================================
-// Projective unit groups modulo prime powers.
+// Exact projective unit groups modulo prime powers.
 //
-// Main API:
-// - build_projective_unit_group(order_data, prime_ideal, k :
-//       Print := 1,
-//       time_limit_seconds := 0,
-//       max_projective_quotient_seconds := 0,
-//       max_reduced_unit_seconds := 0,
-//       compute_complements := true)
+// Public API:
+//     FiniteQuotient(order_data, prime_ideal, exponent : Print := 0)
+//
+// FiniteQuotient builds G = (O / P^k O)^* / (R / P^k)^* as an exact
+// permutation group, choosing among four models: the natural PGL(2, F)
+// action on P^1(F) at split locally maximal primes with k = 1, a kernel
+// lift of the prime-level classes at split locally maximal primes with
+// k = 2, an enumeration of unit points of P^3(F) at ramified locally
+// maximal primes with k = 1, and full enumeration of (O / P^k O)^*
+// otherwise.  Each model is certified against exact group-order formulas.
+//
+// For Eichler orders (order_type >= 2) the returned record also carries
+// the image of the projective normalizer: inside G itself at split
+// localization primes, and inside the doubled extension W = <G, t> with
+// t^2 = [a^2] at ramified primes, where a is a normalizer element of odd
+// P-valuation.
 // ============================================================================
 // Record storing one projective unit-group computation modulo P^k.
 projective_unit_group_format := recformat<
     order_data,
-    prime_ideal,
-    prime_power_exponent,
     modulus_ideal,
-    elapsed_seconds,
-    estimated_reduced_unit_seconds,
-    estimated_permutation_seconds,
-    prime_ramified_in_algebra,
-    local_maximal_at_prime,
-    formula_case,
-    expected_projective_group_order,
-    expected_scalar_unit_order,
-    expected_reduced_unit_order,
     reduced_base_ring,
     reduced_algebra,
     reduction_map,
     reduced_units,
-    scalar_units,
     scalars,
     reduced_unit_membership,
     class_representatives,
@@ -36,35 +33,36 @@ projective_unit_group_format := recformat<
     class_key_data,
     reduced_to_permutation,
     permutation_to_reduced,
-    reduced_unit_lifts,
     projective_unit_group,
-    unit_image_permutations,
-    unit_image_subgroup,
-    unit_complements,
-    normal_unit_complements,
     normalizer_image_defined,
     normalizer_ambient_group,
     normalizer_image_map,
-    normalizer_reduced_lifts,
-    normalizer_image_permutations,
-    normalizer_image_subgroup,
-    normalizer_complements,
-    normal_normalizer_complements,
     ramified_extension_defined,
     ramified_generator,
-    ramified_generator_square_is_scalar,
-    ramified_square_unit_permutation,
-    ramified_conjugation_permutation,
-    ramified_generator_permutation,
-    complements_computed,
-    skipped_due_to_estimate,
-    skipped_task_key,
-    skipped_estimated_seconds
+    ramified_generator_permutation
 >;
 
 
+computed_complement_class_format := recformat<
+    subgroup
+>;
+
+
+// Per-model data used to name the projective class of a reduced unit.  The
+// mode field selects the model: "natural_split_prime" replaces class keys
+// entirely by the PGL(2, F) action on P^1(F), and "split_prime_square" names
+// a class by its prime-level class index together with a canonical kernel
+// tuple.  The generic and ramified models pass class_key_data = false and
+// key classes by canonical scalar-orbit representatives.
 projective_class_key_data_format := recformat<
     mode,
+    reduced_algebra,
+    associative_algebra,
+    split_map,
+    split_basis_matrix,
+    projective_group,
+    projective_points,
+    projective_point_index_by_key,
     order_data,
     prime_reduced_algebra,
     prime_reduction_map,
@@ -80,6 +78,10 @@ projective_class_key_data_format := recformat<
 >;
 
 
+// Unit-membership test data for O / P^k O.  Mode "explicit" consults the
+// list of enumerated reduced units, "is_unit" defers to Magma over the
+// residue field, and "prime_lift" tests the reduction modulo P, which
+// suffices because the kernel ideal P O / P^k O is nilpotent.
 reduced_unit_membership_format := recformat<
     mode,
     lookup,
@@ -98,22 +100,6 @@ function validate_print_level(Print)
     end if;
 
     return Print;
-end function;
-
-
-// Validate the optional estimated-runtime cutoff.
-function validate_estimated_time_control(seconds, parameter_name)
-    if Type(seconds) ne RngIntElt or seconds lt 0 then
-        error Sprintf("%o must be an integer >= 0.", parameter_name);
-    end if;
-
-    return seconds;
-end function;
-
-
-// Validate the optional estimated-runtime cutoff.
-function validate_time_limit_seconds(time_limit_seconds)
-    return validate_estimated_time_control(time_limit_seconds, "time_limit_seconds");
 end function;
 
 
@@ -136,39 +122,7 @@ function ideal_summary(label, ideal_x)
         return Sprintf("%o_gen=%o | %o_norm=%o", label, generator, label, Norm(ideal_x));
     end if;
 
-    return Sprintf("%o_gen=unavailable | %o_norm=%o", label, Norm(ideal_x));
-end function;
-
-
-// Test whether an estimated runtime exceeds the chosen cutoff.
-function time_limit_exceeded(time_limit_seconds, estimated_seconds)
-    return (time_limit_seconds gt 0) and (estimated_seconds gt time_limit_seconds);
-end function;
-
-
-// Combine the enabled time controls relevant to one stage.
-function effective_stage_time_limit_seconds(
-    stage_key,
-    k,
-    time_limit_seconds,
-    max_projective_quotient_seconds,
-    max_reduced_unit_seconds
-)
-    active_limits := [];
-
-    if time_limit_seconds gt 0 then
-        Append(~active_limits, time_limit_seconds);
-    end if;
-
-    if stage_key eq "projective_quotient" and max_projective_quotient_seconds gt 0 then
-        Append(~active_limits, max_projective_quotient_seconds);
-    end if;
-
-    if stage_key eq "reduced_units" and k ge 2 and max_reduced_unit_seconds gt 0 then
-        Append(~active_limits, max_reduced_unit_seconds);
-    end if;
-
-    return #active_limits eq 0 select 0 else Minimum(active_limits);
+    return Sprintf("%o_ideal=%o | %o_norm=%o", label, ideal_x, label, Norm(ideal_x));
 end function;
 
 
@@ -248,25 +202,9 @@ function prime_power_data_from_ideal(modulus_ideal)
 end function;
 
 
-// Express an algebra element in the chosen principal basis of the order.
-function coordinates_in_basis(base_field, quaternion_algebra, basis, element_x)
-    basis_matrix := Matrix(base_field, 4, 4, &cat([Eltseq(quaternion_algebra!b) : b in basis]));
-    x_vector := Vector(base_field, [base_field!c : c in Eltseq(quaternion_algebra!element_x)]);
-    is_consistent, solution := IsConsistent(basis_matrix, x_vector);
-
-    if not is_consistent then
-        error "Element is not expressible in the chosen basis.";
-    end if;
-
-    return Eltseq(solution);
-end function;
-
-
 // Build the reduced algebra O / P^k O together with the base-ring reduction map.
 function build_reduced_algebra(order_data, modulus_ideal)
-    base_field := order_data`base_field;
     integer_ring := order_data`integer_ring;
-    quaternion_algebra := order_data`quaternion_algebra;
     principal_basis := order_data`principal_basis;
     _, k := prime_power_data_from_ideal(modulus_ideal);
 
@@ -279,7 +217,7 @@ function build_reduced_algebra(order_data, modulus_ideal)
     end if;
 
     multiplication_table := [
-        coordinates_in_basis(base_field, quaternion_algebra, principal_basis, principal_basis[i] * principal_basis[j]) : i, j in [1..4]
+        OrderCoordinates(order_data, principal_basis[i] * principal_basis[j]) : i, j in [1..4]
     ];
 
     reduced_algebra := Algebra<reduced_base_ring, 4 | [[reduction_map(c) : c in row] : row in multiplication_table]>;
@@ -289,16 +227,8 @@ end function;
 
 // Reduce the identity element of the order to the reduced algebra.
 function reduced_order_identity(order_data, reduction_map, reduced_algebra)
-    base_field := order_data`base_field;
     integer_ring := order_data`integer_ring;
-    quaternion_algebra := order_data`quaternion_algebra;
-    principal_basis := order_data`principal_basis;
-    identity_coordinates := coordinates_in_basis(
-        base_field,
-        quaternion_algebra,
-        principal_basis,
-        order_data`quaternion_order!1
-    );
+    identity_coordinates := OrderCoordinates(order_data, order_data`quaternion_order!1);
     reduced_coordinates := [];
 
     for coefficient in identity_coordinates do
@@ -313,39 +243,7 @@ function reduced_order_identity(order_data, reduction_map, reduced_algebra)
 end function;
 
 
-// Estimate the cost of enumerating units with IsUnit.
-function estimate_isunit_enumeration(structure_s, total_elements, label : Print := 0)
-    Print := validate_print_level(Print);
 
-    if total_elements eq 0 then
-        return 0;
-    end if;
-
-    sample_size := Minimum(total_elements, 30);
-    sample_checks := 0;
-    sample_timer := Cputime();
-
-    for x in structure_s do
-        is_unit := IsUnit(x);
-        sample_checks +:= 1;
-
-        if sample_checks eq sample_size then
-            break;
-        end if;
-    end for;
-
-    sample_elapsed := Cputime(sample_timer);
-    estimated_seconds := 0;
-
-    if sample_checks gt 0 and sample_elapsed gt 0 then
-        estimated_seconds := (total_elements * sample_elapsed) / sample_checks;
-    end if;
-
-    if print_is_concise(Print) then
-        print "[PUG estimate]", label, "| elements=", total_elements, "| isunit_s=", estimated_seconds;
-    end if;
-    return estimated_seconds;
-end function;
 
 
 // Build a lookup keyed by coordinate sequence for elements of a reduced algebra.
@@ -387,106 +285,10 @@ function reduce_prime_power_scalar_to_prime(integer_ring, prime_reduction_map, r
 end function;
 
 
-// Estimate the cost of filtering R / P^k by nonzero reduction modulo P.
-function estimate_prime_lift_scalar_filter_workload(
-    integer_ring,
-    reduced_base_ring,
-    reduction_map,
-    prime_reduced_base_ring,
-    prime_reduction_map,
-    total_elements,
-    label :
-    Print := 0
-)
-    Print := validate_print_level(Print);
-
-    if total_elements eq 0 then
-        return 0;
-    end if;
-
-    sample_size := Minimum(total_elements, 30);
-    sample_checks := 0;
-    sample_timer := Cputime();
-
-    for scalar in reduced_base_ring do
-        reduction_scalar := reduce_prime_power_scalar_to_prime(
-            integer_ring,
-            prime_reduction_map,
-            reduction_map,
-            scalar
-        );
-        is_unit := reduction_scalar ne prime_reduced_base_ring!0;
-        sample_checks +:= 1;
-
-        if sample_checks eq sample_size then
-            break;
-        end if;
-    end for;
-
-    sample_elapsed := Cputime(sample_timer);
-    estimated_seconds := 0;
-
-    if sample_checks gt 0 and sample_elapsed gt 0 then
-        estimated_seconds := (total_elements * sample_elapsed) / sample_checks;
-    end if;
-
-    if print_is_concise(Print) then
-        print "[PUG estimate]", label, "| elements=", total_elements, "| prime_lift_filter_s=", estimated_seconds;
-    end if;
-    return estimated_seconds;
-end function;
 
 
-// Estimate the cost of filtering O / P^k O by unit reduction modulo P.
-function estimate_prime_lift_unit_filter_workload(
-    order_data,
-    reduced_algebra,
-    reduction_map,
-    prime_reduced_algebra,
-    prime_reduction_map,
-    prime_unit_lookup,
-    total_elements,
-    label :
-    Print := 0
-)
-    Print := validate_print_level(Print);
 
-    if total_elements eq 0 then
-        return 0;
-    end if;
 
-    sample_size := Minimum(total_elements, 30);
-    sample_checks := 0;
-    sample_timer := Cputime();
-
-    for x in reduced_algebra do
-        reduction_x := reduce_prime_power_element_to_prime(
-            order_data,
-            prime_reduced_algebra,
-            prime_reduction_map,
-            reduction_map,
-            x
-        );
-        is_unit := IsDefined(prime_unit_lookup, Eltseq(reduction_x));
-        sample_checks +:= 1;
-
-        if sample_checks eq sample_size then
-            break;
-        end if;
-    end for;
-
-    sample_elapsed := Cputime(sample_timer);
-    estimated_seconds := 0;
-
-    if sample_checks gt 0 and sample_elapsed gt 0 then
-        estimated_seconds := (total_elements * sample_elapsed) / sample_checks;
-    end if;
-
-    if print_is_concise(Print) then
-        print "[PUG estimate]", label, "| elements=", total_elements, "| prime_lift_filter_s=", estimated_seconds;
-    end if;
-    return estimated_seconds;
-end function;
 
 
 // Build fibers of R / P^k over R / P.  This is used to lift units modulo P
@@ -537,13 +339,8 @@ procedure append_lifted_algebra_elements(
     coordinate_fibers,
     coordinate_index,
     current_coordinates,
-    ~lifted_elements,
-    max_elements
+    ~lifted_elements
 )
-    if max_elements gt 0 and #lifted_elements ge max_elements then
-        return;
-    end if;
-
     if coordinate_index gt #coordinate_fibers then
         Append(~lifted_elements, reduced_algebra!current_coordinates);
         return;
@@ -555,13 +352,8 @@ procedure append_lifted_algebra_elements(
             coordinate_fibers,
             coordinate_index + 1,
             current_coordinates cat [coordinate],
-            ~lifted_elements,
-            max_elements
+            ~lifted_elements
         );
-
-        if max_elements gt 0 and #lifted_elements ge max_elements then
-            return;
-        end if;
     end for;
 end procedure;
 
@@ -570,8 +362,7 @@ procedure append_lifts_of_prime_unit(
     reduced_algebra,
     scalar_fibers,
     prime_unit,
-    ~lifted_units,
-    max_elements
+    ~lifted_units
 )
     coordinate_fibers := [
         scalar_prime_fiber(scalar_fibers, coordinate) :
@@ -583,8 +374,7 @@ procedure append_lifts_of_prime_unit(
         coordinate_fibers,
         1,
         [],
-        ~lifted_units,
-        max_elements
+        ~lifted_units
     );
 end procedure;
 
@@ -592,8 +382,7 @@ end procedure;
 function lifted_prime_power_units(
     reduced_algebra,
     scalar_fibers,
-    prime_reduced_units :
-    max_elements := 0
+    prime_reduced_units
 )
     lifted_units := [];
 
@@ -602,64 +391,15 @@ function lifted_prime_power_units(
             reduced_algebra,
             scalar_fibers,
             prime_unit,
-            ~lifted_units,
-            max_elements
+            ~lifted_units
         );
-
-        if max_elements gt 0 and #lifted_units ge max_elements then
-            break;
-        end if;
     end for;
 
     return lifted_units;
 end function;
 
 
-function estimated_prime_power_unit_lift_seconds(
-    reduced_algebra,
-    scalar_fibers,
-    prime_reduced_units,
-    expected_lift_count :
-    Print := 0,
-    label := "O/P^kO lifted units"
-)
-    Print := validate_print_level(Print);
 
-    if expected_lift_count eq 0 or #prime_reduced_units eq 0 then
-        return 0;
-    end if;
-
-    sample_prime_unit_count := Minimum(#prime_reduced_units, 5);
-    sample_lift_count := 0;
-    sample_timer := Cputime();
-
-    for i in [1..sample_prime_unit_count] do
-        sample_units := [];
-        append_lifts_of_prime_unit(
-            reduced_algebra,
-            scalar_fibers,
-            prime_reduced_units[i],
-            ~sample_units,
-            0
-        );
-        sample_lift_count +:= #sample_units;
-    end for;
-
-    sample_elapsed := Cputime(sample_timer);
-    estimated_seconds := 0;
-
-    if sample_lift_count gt 0 and sample_elapsed gt 0 then
-        estimated_seconds := (expected_lift_count * sample_elapsed) / sample_lift_count;
-    end if;
-
-    if print_is_concise(Print) then
-        print "[PUG estimate]", label,
-              "| elements=", expected_lift_count,
-              "| lift_s=", estimated_seconds;
-    end if;
-
-    return estimated_seconds;
-end function;
 
 
 function lifted_prime_power_scalar_units(
@@ -689,6 +429,9 @@ function lift_prime_reduced_element_to_prime_square(reduced_algebra, scalar_fibe
 end function;
 
 
+// Invert a lifted unit modulo P^2 by one nilpotent correction: if y lifts
+// the inverse of x modulo P, then e := y x - 1 lies in P O / P^2 O, so
+// e^2 = 0 and (1 - e) y is the exact inverse of x modulo P^2.
 function lifted_prime_square_inverse(
     reduced_algebra,
     reduced_identity,
@@ -764,6 +507,10 @@ function scalar_kernel_tuples_for_prime_square(reduced_identity, zero_fiber)
 end function;
 
 
+// The kernel of G(R / P^2) -> G(R / P) consists of the classes of 1 + n
+// with n in P O / P^2 O.  Enumerate one coordinate tuple per class by
+// canonicalizing the N(P)^4 kernel tuples modulo the N(P) scalar tuples
+// lambda * 1 with lambda in P / P^2, leaving N(P)^3 projective classes.
 function projective_kernel_tuples_for_prime_square(reduced_identity, zero_fiber)
     all_tuples := [];
     append_kernel_tuples(zero_fiber, 4, [], ~all_tuples);
@@ -798,58 +545,27 @@ function reduced_unit_data(
     reduced_algebra,
     reduction_map :
     Print := 0,
-    time_limit_seconds := 300,
     expected_scalar_unit_order := 0
 )
     Print := validate_print_level(Print);
-    time_limit_seconds := validate_time_limit_seconds(time_limit_seconds);
     prime_ideal, k := prime_power_data_from_ideal(modulus_ideal);
     one_algebra := reduced_order_identity(order_data, reduction_map, reduced_algebra);
 
     if k eq 1 then
-        estimated_seconds := estimate_isunit_enumeration(
-            reduced_algebra,
-            (#reduced_base_ring)^4,
-            "O/P^kO (field quotient)" :
-            Print := Print
-        );
-        if time_limit_exceeded(time_limit_seconds, estimated_seconds) then
-            return false, false, false, estimated_seconds, true;
-        end if;
         reduced_units := [u : u in reduced_algebra | IsUnit(u)];
-
-        estimated_scalar_seconds := estimate_isunit_enumeration(
-            reduced_base_ring,
-            #reduced_base_ring,
-            "(R/P^k)^*" :
-            Print := Print
-        );
-        if time_limit_exceeded(time_limit_seconds, estimated_seconds + estimated_scalar_seconds) then
-            return false, false, false, estimated_seconds + estimated_scalar_seconds, true;
-        end if;
         scalar_units := [a : a in reduced_base_ring | IsUnit(a)];
         if expected_scalar_unit_order ne 0 and #scalar_units ne expected_scalar_unit_order then
             error "Scalar-unit count did not match the expected size of (R / P^k)^*.";
         end if;
         scalars := {a * one_algebra : a in scalar_units};
-        return reduced_units, scalar_units, scalars, estimated_seconds + estimated_scalar_seconds, false;
+        return reduced_units, scalar_units, scalars;
     end if;
 
     // The ideal P O / P^k O is nilpotent, so an element of O / P^k O is a
     // unit if and only if its reduction modulo P is a unit.
     prime_reduced_algebra, prime_reduced_base_ring, prime_reduction_map :=
         build_reduced_algebra(order_data, prime_ideal);
-    estimated_prime_unit_seconds := estimate_isunit_enumeration(
-        prime_reduced_algebra,
-        (#prime_reduced_base_ring)^4,
-        "O/PO (unit test for P^k lift)" :
-        Print := Print
-    );
-    if time_limit_exceeded(time_limit_seconds, estimated_prime_unit_seconds) then
-        return false, false, false, estimated_prime_unit_seconds, true;
-    end if;
     prime_reduced_units := [u : u in prime_reduced_algebra | IsUnit(u)];
-    prime_unit_lookup := element_sequence_lookup(prime_reduced_units);
 
     scalar_fibers := scalar_prime_reduction_fibers(
         order_data`integer_ring,
@@ -858,24 +574,6 @@ function reduced_unit_data(
         prime_reduced_base_ring,
         prime_reduction_map
     );
-    expected_lifts_per_prime_unit := #scalar_prime_fiber(
-        scalar_fibers,
-        prime_reduced_base_ring!0
-    )^4;
-    expected_reduced_unit_count_from_lifts := #prime_reduced_units * expected_lifts_per_prime_unit;
-    estimated_order_seconds := estimated_prime_power_unit_lift_seconds(
-        reduced_algebra,
-        scalar_fibers,
-        prime_reduced_units,
-        expected_reduced_unit_count_from_lifts :
-        Print := Print
-    );
-    estimated_scalar_seconds := 0;
-    estimated_total_seconds := estimated_prime_unit_seconds + estimated_order_seconds + estimated_scalar_seconds;
-    if time_limit_exceeded(time_limit_seconds, estimated_total_seconds) then
-        return false, false, false, estimated_total_seconds, true;
-    end if;
-
     reduced_units := lifted_prime_power_units(
         reduced_algebra,
         scalar_fibers,
@@ -891,7 +589,7 @@ function reduced_unit_data(
     end if;
     scalars := {a * one_algebra : a in scalar_units};
 
-    return reduced_units, scalar_units, scalars, estimated_total_seconds, false;
+    return reduced_units, scalar_units, scalars;
 end function;
 
 
@@ -951,6 +649,11 @@ function scalar_multiple_coordinates(coordinates, scalar)
 end function;
 
 
+// Name the projective class of a unit u modulo P^2 by the serialized pair
+// "prime_class_index|kernel_key": scale u so that its reduction modulo P is
+// the stored canonical prime-level representative, multiply by the stored
+// lifted inverse of that representative, and read off the canonical kernel
+// tuple of the remaining class 1 + n with n in P O / P^2 O.
 function split_prime_square_projective_class_key(reduced_element, class_key_data)
     prime_reduced_element := reduce_prime_power_element_to_prime(
         class_key_data`order_data,
@@ -1005,10 +708,17 @@ function split_prime_square_projective_class_key(reduced_element, class_key_data
 end function;
 
 
+// Canonical key naming the scalar class of a reduced unit, dispatching on
+// the class-key model.  Two reduced units receive equal keys exactly when
+// they differ by a scalar in (R / P^k)^*.
 function projective_class_key(reduced_element, scalars, class_key_data)
     if Type(class_key_data) eq Rec and assigned class_key_data`mode then
         if class_key_data`mode eq "split_prime_square" then
             return split_prime_square_projective_class_key(reduced_element, class_key_data);
+        end if;
+
+        if class_key_data`mode eq "natural_split_prime" then
+            error "The natural split-prime model uses projective permutations, not class keys.";
         end if;
 
         error Sprintf("Unknown projective class-key mode %o.", class_key_data`mode);
@@ -1018,20 +728,18 @@ function projective_class_key(reduced_element, scalars, class_key_data)
 end function;
 
 
-// Report sampled progress often enough to be useful without flooding output.
-function sampling_report_interval()
-    return 20;
-end function;
 
 
-// Deterministic index sweep used before falling back to an exhaustive scan.
-function sampled_index_order(num_items)
+
+// A deterministic priority order.  Algorithms using it continue through the
+// remaining indices whenever the exact target has not yet been certified.
+function priority_index_order(num_items)
     if num_items le 1 then
         return [];
     end if;
 
     max_base := Max(2, Floor(Log(2, num_items)));
-    sampled_indices := [];
+    priority_indices := [];
     used_indices := AssociativeArray();
 
     for base in Reverse([2..max_base]) do
@@ -1039,64 +747,33 @@ function sampled_index_order(num_items)
         while index le num_items do
             if not IsDefined(used_indices, index) then
                 used_indices[index] := true;
-                Append(~sampled_indices, index);
+                Append(~priority_indices, index);
             end if;
             index *:= base;
         end while;
     end for;
 
-    return sampled_indices;
+    return priority_indices;
 end function;
 
 
-// Extrapolate a total runtime from partial sampled work.
-function estimated_seconds_from_progress(elapsed_seconds, completed_steps, total_steps)
-    if completed_steps le 0 or elapsed_seconds le 0 then
-        return 0;
-    end if;
-
-    return (total_steps * elapsed_seconds) / completed_steps;
-end function;
-
-
-// Build the projective classes with a sampled sweep before the full scan.
-function projective_class_data(reduced_units, scalars, num_classes : Print := 0, time_limit_seconds := 300)
+// Enumerate every projective class, visiting a deterministic priority order
+// first and then every remaining reduced unit when needed.
+function projective_class_data(reduced_units, scalars, num_classes : Print := 0)
     Print := validate_print_level(Print);
-    time_limit_seconds := validate_time_limit_seconds(time_limit_seconds);
     total_units := #reduced_units;
-    report_interval := sampling_report_interval();
-    sampled_indices := sampled_index_order(total_units);
-    sampled_index_set := AssociativeArray();
+    priority_indices := priority_index_order(total_units);
+    priority_index_set := AssociativeArray();
     class_representatives := [];
     class_index_by_key := AssociativeArray();
-    timer := Cputime();
-    checked_units := 0;
-
-    for index in sampled_indices do
-        sampled_index_set[index] := true;
-        checked_units +:= 1;
+    for index in priority_indices do
+        priority_index_set[index] := true;
         representative := canonical_orbit_representative(reduced_units[index], scalars);
         representative_key := Sprint(representative);
 
         if not IsDefined(class_index_by_key, representative_key) then
             Append(~class_representatives, representative);
             class_index_by_key[representative_key] := #class_representatives;
-        end if;
-
-        if ((checked_units mod report_interval eq 0) or
-            (#class_representatives eq num_classes) or
-            (checked_units eq total_units)) then
-            estimated_seconds := estimated_seconds_from_progress(Cputime(timer), checked_units, total_units);
-
-            if print_is_concise(Print) then
-                print "[PUG estimate] projective_classes | checked=", checked_units, "/", total_units,
-                      "| found=", #class_representatives, "/", num_classes,
-                      "| seconds=", estimated_seconds;
-            end if;
-
-            if time_limit_exceeded(time_limit_seconds, estimated_seconds) then
-                return false, false, true, estimated_seconds;
-            end if;
         end if;
 
         if #class_representatives eq num_classes then
@@ -1106,15 +783,14 @@ function projective_class_data(reduced_units, scalars, num_classes : Print := 0,
 
     if #class_representatives ne num_classes then
         if print_is_detailed(Print) then
-            print "[PUG sampled] projective_classes | fallback=exhaustive";
+            print "[PUG classes] continuing through remaining reduced units";
         end if;
 
         for index in [1..total_units] do
-            if IsDefined(sampled_index_set, index) then
+            if IsDefined(priority_index_set, index) then
                 continue;
             end if;
 
-            checked_units +:= 1;
             representative := canonical_orbit_representative(reduced_units[index], scalars);
             representative_key := Sprint(representative);
 
@@ -1123,31 +799,331 @@ function projective_class_data(reduced_units, scalars, num_classes : Print := 0,
                 class_index_by_key[representative_key] := #class_representatives;
             end if;
 
-            if ((checked_units mod report_interval eq 0) or
-                (#class_representatives eq num_classes) or
-                (checked_units eq total_units)) then
-                estimated_seconds := estimated_seconds_from_progress(Cputime(timer), checked_units, total_units);
-
-                if print_is_concise(Print) then
-                    print "[PUG estimate] projective_classes | checked=", checked_units, "/", total_units,
-                          "| found=", #class_representatives, "/", num_classes,
-                          "| seconds=", estimated_seconds;
-                end if;
-
-                if time_limit_exceeded(time_limit_seconds, estimated_seconds) then
-                    return false, false, true, estimated_seconds;
-                end if;
-            end if;
-
             if #class_representatives eq num_classes then
                 break;
             end if;
         end for;
     elif print_is_detailed(Print) then
-        print "[PUG sampled] projective_classes | fallback=not_needed";
+        print "[PUG classes] exact class count certified in priority order";
     end if;
 
-    return class_representatives, class_index_by_key, false, 0;
+    if #class_representatives ne num_classes then
+        error Sprintf("Found %o projective classes, expected %o.",
+                      #class_representatives, num_classes);
+    end if;
+    return class_representatives, class_index_by_key;
+end function;
+
+
+// At a ramified locally maximal prime with k = 1, enumerate the projective
+// unit classes as unit points of P^3(F): each scalar orbit of reduced units
+// contains exactly one pivoted point representative, so visiting the
+// N^3 + N^2 + N + 1 points and keeping the units lists every class once
+// without scanning all of (O / P O)^*.
+function projective_point_class_data(
+    reduced_algebra,
+    reduced_base_ring,
+    scalars,
+    num_classes :
+    Print := 0
+)
+    Print := validate_print_level(Print);
+    base_elements := [entry : entry in reduced_base_ring];
+    zero := reduced_base_ring!0;
+    one := reduced_base_ring!1;
+    total_projective_points := &+[ (#base_elements)^(4 - pivot_index) : pivot_index in [1..4] ];
+    class_representatives := [];
+    class_index_by_key := AssociativeArray();
+
+    for pivot_index in [1..4] do
+        suffix_tuples := [];
+        append_kernel_tuples(base_elements, 4 - pivot_index, [], ~suffix_tuples);
+
+        for suffix_tuple in suffix_tuples do
+            coordinates := [zero : i in [1..4]];
+            coordinates[pivot_index] := one;
+
+            for j in [1..#suffix_tuple] do
+                coordinates[pivot_index + j] := suffix_tuple[j];
+            end for;
+
+            reduced_element := reduced_algebra!coordinates;
+
+            if IsUnit(reduced_element) then
+                representative := canonical_orbit_representative(reduced_element, scalars);
+                representative_key := projective_class_key(reduced_element, scalars, false);
+
+                if not IsDefined(class_index_by_key, representative_key) then
+                    Append(~class_representatives, representative);
+                    class_index_by_key[representative_key] := #class_representatives;
+                end if;
+            end if;
+
+        end for;
+    end for;
+
+    if #class_representatives ne num_classes then
+        error Sprintf(
+            "Projective-point class construction found %o classes, expected %o.",
+            #class_representatives,
+            num_classes
+        );
+    end if;
+
+    return class_representatives, class_index_by_key;
+end function;
+
+
+// Canonical key for a point of projective space, using its first nonzero
+// coordinate as pivot.
+function natural_projective_point_key(point)
+    coordinates := Eltseq(point);
+
+    for coordinate in coordinates do
+        if coordinate ne 0 then
+            return Sprint([entry / coordinate : entry in coordinates]);
+        end if;
+    end for;
+
+    error "The zero vector is not a projective point.";
+end function;
+
+
+// Natural action of a split quaternion unit on P^1(F).  Magma's PGL(2,F)
+// already uses this degree-(#F+1) action.
+function natural_split_prime_action_permutation(reduced_element, class_key_data)
+    if Type(class_key_data) ne Rec or
+       not assigned class_key_data`mode or
+       class_key_data`mode ne "natural_split_prime" then
+        error "Natural split-prime action data is required.";
+    end if;
+
+    associative_element := class_key_data`associative_algebra!
+        (class_key_data`reduced_algebra!reduced_element);
+    matrix_element := class_key_data`split_map(associative_element);
+    permutation_entries := [];
+
+    for point in class_key_data`projective_points do
+        image_key := natural_projective_point_key(point * matrix_element);
+
+        if not IsDefined(class_key_data`projective_point_index_by_key, image_key) then
+            error "The split matrix action did not preserve the projective line.";
+        end if;
+
+        Append(
+            ~permutation_entries,
+            class_key_data`projective_point_index_by_key[image_key]
+        );
+    end for;
+
+    permutation := Sym(#class_key_data`projective_points)!permutation_entries;
+    if not (permutation in class_key_data`projective_group) then
+        error "A split matrix did not induce an element of PGL(2,F).";
+    end if;
+
+    return class_key_data`projective_group!permutation;
+end function;
+
+
+// Recover a projective matrix from the images of [1,0], [0,1], and [1,1],
+// then express it in the reduced quaternion basis.  This is the inverse of
+// the natural action on projective classes, not a choice among scalar lifts.
+function natural_split_prime_reduced_representative_from_data(
+    class_key_data,
+    group_element
+)
+    if Type(class_key_data) ne Rec or
+       not assigned class_key_data`mode or
+       class_key_data`mode ne "natural_split_prime" then
+        error "Natural split-prime action data is required.";
+    end if;
+
+    projective_group := class_key_data`projective_group;
+    if not (group_element in projective_group) then
+        error "The permutation is not in the natural split-prime group.";
+    end if;
+    group_element := projective_group!group_element;
+    points := class_key_data`projective_points;
+    vector_space := Parent(points[1]);
+    reference_points := [
+        vector_space![1, 0],
+        vector_space![0, 1],
+        vector_space![1, 1]
+    ];
+    image_points := [];
+
+    for reference_point in reference_points do
+        reference_key := natural_projective_point_key(reference_point);
+        if not IsDefined(class_key_data`projective_point_index_by_key, reference_key) then
+            error "A reference point is missing from the natural projective line.";
+        end if;
+        reference_index := class_key_data`projective_point_index_by_key[reference_key];
+        Append(~image_points, points[reference_index^group_element]);
+    end for;
+
+    u := image_points[1];
+    v := image_points[2];
+    w := image_points[3];
+    determinant_uw := u[1] * w[2] - u[2] * w[1];
+    determinant_vw := v[1] * w[2] - v[2] * w[1];
+    if determinant_vw eq 0 then
+        error "Three projective images did not determine a split matrix.";
+    end if;
+    relative_scale := -determinant_uw / determinant_vw;
+    matrix_element := Matrix(
+        BaseRing(class_key_data`split_basis_matrix),
+        2,
+        2,
+        Eltseq(u) cat Eltseq(relative_scale * v)
+    );
+    is_consistent, coordinates := IsConsistent(
+        class_key_data`split_basis_matrix,
+        Vector(BaseRing(class_key_data`split_basis_matrix), Eltseq(matrix_element))
+    );
+    if not is_consistent then
+        error "A projective matrix is not in the split quaternion algebra.";
+    end if;
+
+    reduced_element := class_key_data`reduced_algebra!Eltseq(coordinates);
+    if not IsUnit(reduced_element) then
+        error "A natural PGL element recovered a nonunit quaternion class.";
+    end if;
+    if natural_split_prime_action_permutation(reduced_element, class_key_data) ne
+       group_element then
+        error "Natural split-prime action recovery failed.";
+    end if;
+
+    return reduced_element;
+end function;
+
+
+// Test whether a FiniteQuotient record models G by the natural PGL(2, F)
+// action on P^1(F) rather than by enumerated class representatives.
+function UsesNaturalSplitPrimeModel(group_model)
+    return assigned group_model`class_key_data and
+           Type(group_model`class_key_data) eq Rec and
+           assigned group_model`class_key_data`mode and
+           group_model`class_key_data`mode eq "natural_split_prime";
+end function;
+
+
+// Recover a reduced quaternion unit whose natural action on P^1(F) equals
+// the given permutation.  Stored unit and normalizer images use the inverse
+// orientation (see cached_projective_permutation), so callers recovering a
+// representative for a stored image pass its inverse.
+function NaturalSplitPrimeReducedRepresentative(group_model, group_element)
+    if not UsesNaturalSplitPrimeModel(group_model) then
+        error "The quotient does not use the natural split-prime model.";
+    end if;
+
+    return natural_split_prime_reduced_representative_from_data(
+        group_model`class_key_data,
+        group_element
+    );
+end function;
+
+
+// Identify a split four-dimensional algebra with M_2(F), and certify the
+// resulting natural PGL(2,F) model without enumerating its group elements.
+function natural_split_prime_model(
+    reduced_algebra,
+    reduced_base_ring,
+    reduced_identity,
+    expected_projective_group_order
+)
+    associative_algebra := AssociativeAlgebra(reduced_algebra);
+    if not IsSimple(associative_algebra) then
+        error "A locally split reduced quaternion algebra is not simple.";
+    end if;
+
+    minimal_right_ideals, complete := MinimalRightIdeals(associative_algebra);
+    if not complete then
+        error "The minimal-right-ideal computation was incomplete.";
+    end if;
+    degree_two_ideals := [
+        ideal_x : ideal_x in minimal_right_ideals | Dimension(ideal_x) eq 2
+    ];
+    if #degree_two_ideals ne #reduced_base_ring + 1 then
+        error "The split algebra does not have the expected projective line of minimal right ideals.";
+    end if;
+
+    matrix_algebra, split_map := MatrixAlgebra(
+        associative_algebra,
+        degree_two_ideals[1] :
+        Side := "Right"
+    );
+    if Degree(matrix_algebra) ne 2 or BaseRing(matrix_algebra) ne reduced_base_ring then
+        error "The split algebra did not produce M_2(F).";
+    end if;
+    if split_map(associative_algebra!1) ne Identity(matrix_algebra) or
+       not &and[
+           split_map(associative_algebra.i * associative_algebra.j) eq
+           split_map(associative_algebra.i) * split_map(associative_algebra.j) :
+           i, j in [1..4]
+       ] then
+        error "The matrix representation is not an algebra homomorphism.";
+    end if;
+
+    split_basis_matrix := Matrix(
+        reduced_base_ring,
+        4,
+        4,
+        &cat[
+            Eltseq(split_map(associative_algebra.i)) : i in [1..4]
+        ]
+    );
+    if Rank(split_basis_matrix) ne 4 then
+        error "The split matrix representation is not an isomorphism.";
+    end if;
+
+    projective_group, projective_points := PGL(2, reduced_base_ring);
+    if #projective_group ne expected_projective_group_order or
+       Degree(projective_group) ne #reduced_base_ring + 1 or
+       #projective_points ne #reduced_base_ring + 1 then
+        error "The natural PGL(2,F) model has the wrong exact size or degree.";
+    end if;
+    projective_point_index_by_key := AssociativeArray();
+    for i in [1..#projective_points] do
+        key := natural_projective_point_key(projective_points[i]);
+        if IsDefined(projective_point_index_by_key, key) then
+            error "The natural projective-line points are not distinct.";
+        end if;
+        projective_point_index_by_key[key] := i;
+    end for;
+
+    class_key_data := rec<projective_class_key_data_format |
+        mode := "natural_split_prime",
+        reduced_algebra := reduced_algebra,
+        associative_algebra := associative_algebra,
+        split_map := split_map,
+        split_basis_matrix := split_basis_matrix,
+        projective_group := projective_group,
+        projective_points := projective_points,
+        projective_point_index_by_key := projective_point_index_by_key
+    >;
+
+    // Scalars must act trivially, and the three-point inverse must recover the
+    // identity and every stored PGL generator exactly.
+    for scalar in reduced_base_ring do
+        if scalar ne 0 and
+           natural_split_prime_action_permutation(
+               scalar * reduced_identity,
+               class_key_data
+           ) ne Identity(projective_group) then
+            error "A nonzero scalar acted nontrivially on the projective line.";
+        end if;
+    end for;
+    test_elements := [Identity(projective_group)] cat
+        [projective_group.i : i in [1..Ngens(projective_group)]] cat
+        [projective_group.i^-1 : i in [1..Ngens(projective_group)]];
+    for group_element in test_elements do
+        _ := natural_split_prime_reduced_representative_from_data(
+            class_key_data,
+            group_element
+        );
+    end for;
+
+    return projective_group, class_key_data;
 end function;
 
 
@@ -1161,12 +1137,9 @@ function split_prime_square_projective_class_data(
     scalar_units,
     scalars,
     expected_projective_group_order :
-    Print := 0,
-    time_limit_seconds := 0
+    Print := 0
 )
     Print := validate_print_level(Print);
-    time_limit_seconds := validate_time_limit_seconds(time_limit_seconds);
-    timer := Cputime();
     prime_reduced_algebra, prime_reduced_base_ring, prime_reduction_map :=
         build_reduced_algebra(order_data, prime_ideal);
     prime_reduced_identity := reduced_order_identity(
@@ -1184,19 +1157,12 @@ function split_prime_square_projective_class_data(
 
     prime_num_classes := #prime_reduced_units div #prime_scalars;
     prime_class_representatives,
-    prime_class_index_by_key,
-    prime_projective_class_skipped,
-    prime_projective_class_estimated_seconds := projective_class_data(
+    prime_class_index_by_key := projective_class_data(
         prime_reduced_units,
         prime_scalars,
         prime_num_classes :
-        Print := 0,
-        time_limit_seconds := time_limit_seconds
+        Print := 0
     );
-
-    if prime_projective_class_skipped then
-        return false, false, false, true, prime_projective_class_estimated_seconds;
-    end if;
 
     reduced_identity := reduced_order_identity(order_data, reduction_map, reduced_algebra);
     zero_fiber := scalar_prime_fiber(
@@ -1243,11 +1209,7 @@ function split_prime_square_projective_class_data(
     >;
     class_representatives := [];
     class_index_by_key := AssociativeArray();
-    report_interval := sampling_report_interval();
-    checked_prime_classes := 0;
-
     for prime_class_index in [1..#prime_class_representatives] do
-        checked_prime_classes +:= 1;
         lifted_prime_representative := lifted_prime_representatives[prime_class_index];
 
         for kernel_tuple in kernel_tuples do
@@ -1261,25 +1223,6 @@ function split_prime_square_projective_class_data(
             end if;
         end for;
 
-        if ((checked_prime_classes mod report_interval eq 0) or
-            (checked_prime_classes eq #prime_class_representatives)) then
-            estimated_seconds := estimated_seconds_from_progress(
-                Cputime(timer),
-                checked_prime_classes,
-                #prime_class_representatives
-            );
-
-            if print_is_concise(Print) then
-                print "[PUG estimate] split_prime_square_classes | prime_classes=",
-                      checked_prime_classes, "/", #prime_class_representatives,
-                      "| found=", #class_representatives, "/", expected_projective_group_order,
-                      "| seconds=", estimated_seconds;
-            end if;
-
-            if time_limit_exceeded(time_limit_seconds, estimated_seconds) then
-                return false, false, false, true, estimated_seconds;
-            end if;
-        end if;
     end for;
 
     if #class_representatives ne expected_projective_group_order then
@@ -1290,11 +1233,7 @@ function split_prime_square_projective_class_data(
         );
     end if;
 
-    return class_representatives,
-           class_index_by_key,
-           class_key_data,
-           false,
-           Cputime(timer);
+    return class_representatives, class_index_by_key, class_key_data;
 end function;
 
 
@@ -1346,249 +1285,66 @@ procedure cache_orbit_permutation(
 end procedure;
 
 
-function estimate_left_action_permutation_seconds(
-    g,
-    reduced_algebra,
-    class_representatives,
-    class_index_by_key,
-    scalars,
-    class_key_data :
-    sample_size := 200
-)
-    num_classes := #class_representatives;
-
-    if num_classes eq 0 then
-        return 0;
-    end if;
-
-    sample_size := Minimum(sample_size, num_classes);
-    timer := Cputime();
-
-    for i in [1..sample_size] do
-        product := reduced_algebra!g * reduced_algebra!class_representatives[i];
-        image_key := projective_class_key(product, scalars, class_key_data);
-
-        if not IsDefined(class_index_by_key, image_key) then
-            error "Left-action sample product not found in class representatives.";
-        end if;
-    end for;
-
-    sample_elapsed := Cputime(timer);
-
-    if sample_elapsed eq 0 then
-        return 0;
-    end if;
-
-    return (num_classes * sample_elapsed) / sample_size;
-end function;
 
 
-// Find generators of the projective model with the sampled sweep first.
-// The returned maps are caches that start from sampled generators and grow as
-// specific projective lifts are needed later on.
-function sampled_generator_permutation_data(
+
+// Find generators in deterministic priority order.  The exact group-order
+// check certifies when the selected permutations generate the full model.
+function projective_generator_permutation_data(
     reduced_algebra,
     class_representatives,
     class_index_by_key,
     scalars,
     class_key_data,
     reduced_identity :
-    Print := 0,
-    time_limit_seconds := 300
+    Print := 0
 )
     Print := validate_print_level(Print);
-    time_limit_seconds := validate_time_limit_seconds(time_limit_seconds);
     num_classes := #class_representatives;
     symmetric_group := Sym(num_classes);
-    report_interval := (num_classes ge 100000) select 1 else sampling_report_interval();
-    sampled_indices := sampled_index_order(num_classes);
-    sampled_index_set := AssociativeArray();
+    priority_indices := priority_index_order(num_classes);
     reduced_to_permutation := AssociativeArray();
     permutation_to_reduced := AssociativeArray();
-    generator_permutations := [];
-    trial_group := sub<symmetric_group | >;
-    checked_representatives := 0;
-    timer := Cputime();
-
+    generators := [];
+    group_g := sub<symmetric_group | >;
     if num_classes eq 0 then
-        return reduced_to_permutation, permutation_to_reduced, generator_permutations, trial_group, 0, false;
+        return reduced_to_permutation, permutation_to_reduced, generators, group_g;
     end if;
-
-    one_key := projective_class_key(reduced_identity, scalars, class_key_data);
-    if not IsDefined(class_index_by_key, one_key) then
-        error "The projective unit model does not contain the identity class.";
+    identity_key := projective_class_key(reduced_identity, scalars, class_key_data);
+    if not IsDefined(class_index_by_key, identity_key) then
+        error "The projective model does not contain the identity class.";
     end if;
-    one_representative := class_representatives[class_index_by_key[one_key]];
-    one_permutation := Identity(symmetric_group);
+    identity_representative := class_representatives[class_index_by_key[identity_key]];
     cache_orbit_permutation(
-        reduced_algebra,
-        scalars,
-        one_representative,
-        one_permutation,
-        ~reduced_to_permutation,
-        ~permutation_to_reduced
+        reduced_algebra, scalars, identity_representative, Identity(symmetric_group),
+        ~reduced_to_permutation, ~permutation_to_reduced
     );
-
-    if #sampled_indices gt 0 then
-        preflight_estimated_seconds := estimate_left_action_permutation_seconds(
-            class_representatives[sampled_indices[1]],
-            reduced_algebra,
-            class_representatives,
-            class_index_by_key,
-            scalars,
-            class_key_data
-        );
-        preflight_stage_estimated_seconds := 2 * preflight_estimated_seconds;
-
-        if print_is_concise(Print) then
-            print "[PUG estimate] permutation_model | one_action_seconds=",
-                  preflight_estimated_seconds,
-                  "| stage_seconds=", preflight_stage_estimated_seconds;
-        end if;
-
-        if time_limit_exceeded(time_limit_seconds, preflight_stage_estimated_seconds) then
-            return reduced_to_permutation,
-                   permutation_to_reduced,
-                   generator_permutations,
-                   trial_group,
-                   preflight_stage_estimated_seconds,
-                   true;
-        end if;
-    end if;
-
-    for index in sampled_indices do
-        sampled_index_set[index] := true;
-        checked_representatives +:= 1;
+    indices := priority_indices cat [i : i in [1..num_classes] | Index(priority_indices, i) eq 0];
+    for index in indices do
         representative := class_representatives[index];
-        representative_permutation := left_action_permutation(
-            representative,
-            reduced_algebra,
-            class_representatives,
-            class_index_by_key,
-            scalars,
-            class_key_data
+        permutation := left_action_permutation(
+            representative, reduced_algebra, class_representatives,
+            class_index_by_key, scalars, class_key_data
         );
-        Append(~generator_permutations, representative_permutation);
-        trial_group := sub<symmetric_group | generator_permutations>;
+        Append(~generators, permutation);
+        group_g := sub<symmetric_group | generators>;
         cache_orbit_permutation(
-            reduced_algebra,
-            scalars,
-            representative,
-            representative_permutation,
-            ~reduced_to_permutation,
-            ~permutation_to_reduced
+            reduced_algebra, scalars, representative, permutation,
+            ~reduced_to_permutation, ~permutation_to_reduced
         );
-
-        if ((checked_representatives mod report_interval eq 0) or
-            (#trial_group eq num_classes) or
-            (checked_representatives eq num_classes)) then
-            estimated_seconds := estimated_seconds_from_progress(Cputime(timer), checked_representatives, num_classes);
-
-            if print_is_concise(Print) then
-                print "[PUG estimate] permutation_model | checked=", checked_representatives, "/", num_classes,
-                      "| G_try=", #trial_group, "/", num_classes,
-                      "| seconds=", estimated_seconds;
-            end if;
-
-            if time_limit_exceeded(time_limit_seconds, estimated_seconds) then
-                return reduced_to_permutation,
-                       permutation_to_reduced,
-                       generator_permutations,
-                       trial_group,
-                       estimated_seconds,
-                       true;
-            end if;
-        end if;
-
-        if #trial_group eq num_classes then
-            break;
-        end if;
+        if #group_g eq num_classes then break; end if;
     end for;
-
-    if #trial_group ne num_classes then
-        if print_is_detailed(Print) then
-            print "[PUG sampled] permutation_model | fallback=exhaustive";
-        end if;
-
-        for index in [1..num_classes] do
-            if IsDefined(sampled_index_set, index) then
-                continue;
-            end if;
-
-            checked_representatives +:= 1;
-            representative := class_representatives[index];
-            representative_permutation := left_action_permutation(
-                representative,
-                reduced_algebra,
-                class_representatives,
-                class_index_by_key,
-                scalars,
-                class_key_data
-            );
-            Append(~generator_permutations, representative_permutation);
-            trial_group := sub<symmetric_group | generator_permutations>;
-            cache_orbit_permutation(
-                reduced_algebra,
-                scalars,
-                representative,
-                representative_permutation,
-                ~reduced_to_permutation,
-                ~permutation_to_reduced
-            );
-
-            if ((checked_representatives mod report_interval eq 0) or
-                (#trial_group eq num_classes) or
-                (checked_representatives eq num_classes)) then
-                estimated_seconds := estimated_seconds_from_progress(Cputime(timer), checked_representatives, num_classes);
-
-                if print_is_concise(Print) then
-                    print "[PUG estimate] permutation_model | checked=", checked_representatives, "/", num_classes,
-                          "| G_try=", #trial_group, "/", num_classes,
-                          "| seconds=", estimated_seconds;
-                end if;
-
-                if time_limit_exceeded(time_limit_seconds, estimated_seconds) then
-                    return reduced_to_permutation,
-                           permutation_to_reduced,
-                           generator_permutations,
-                           trial_group,
-                           estimated_seconds,
-                           true;
-                end if;
-            end if;
-
-            if #trial_group eq num_classes then
-                break;
-            end if;
-        end for;
-    elif print_is_detailed(Print) then
-        print "[PUG sampled] permutation_model | fallback=not_needed";
+    if #group_g ne num_classes then
+        error "The projective permutation generators do not generate every class.";
     end if;
-
-    return reduced_to_permutation,
-           permutation_to_reduced,
-           generator_permutations,
-           trial_group,
-           estimated_seconds_from_progress(Cputime(timer), checked_representatives, num_classes),
-           false;
+    return reduced_to_permutation, permutation_to_reduced, generators, group_g;
 end function;
-
-
-// Enforce the assumption that the order data was built over a number field.
-procedure validate_number_field(base_field)
-    if Type(base_field) ne FldNum and Type(base_field) ne FldRat then
-        error "order_data`base_field must be a number field or the rational field. Build the order data with order_data_from_index or build_order_data_for_order.";
-    end if;
-end procedure;
 
 
 // Reduce a stored order element modulo P^k using the principal basis of O.
 function reduce_order_element_mod_modulus(order_data, element_x, reduction_map, reduced_algebra)
-    base_field := order_data`base_field;
     integer_ring := order_data`integer_ring;
-    quaternion_algebra := order_data`quaternion_algebra;
-    principal_basis := order_data`principal_basis;
-    coordinates := coordinates_in_basis(base_field, quaternion_algebra, principal_basis, element_x);
+    coordinates := OrderCoordinates(order_data, element_x);
     reduced_coordinates := [];
 
     // The stored unit and normalizer representatives are elements of O, so
@@ -1609,24 +1365,18 @@ function reduce_order_element_mod_modulus(order_data, element_x, reduction_map, 
 end function;
 
 
-// Replace an ambient algebra element by a primitive integral order representative.
-function primitive_integral_order_representative(order_data, element_x)
-    return integral_normalizer_representative(
-        order_data`base_field,
-        order_data`integer_ring,
-        order_data`quaternion_algebra,
-        order_data`quaternion_order,
-        order_data`principal_basis,
-        element_x
-    );
-end function;
-
-
 // Build a fast lookup table for reduced units by coefficient sequence.
 function reduced_unit_lookup(reduced_units)
     return rec<reduced_unit_membership_format |
         mode := "explicit",
         lookup := element_sequence_lookup(reduced_units)
+    >;
+end function;
+
+
+function reduced_unit_isunit_lookup()
+    return rec<reduced_unit_membership_format |
+        mode := "is_unit"
     >;
 end function;
 
@@ -1639,6 +1389,10 @@ function reduced_element_is_unit(reduced_element, membership_data)
 
     if membership_data`mode eq "explicit" then
         return IsDefined(membership_data`lookup, Eltseq(reduced_element));
+    end if;
+
+    if membership_data`mode eq "is_unit" then
+        return IsUnit(reduced_element);
     end if;
 
     if membership_data`mode eq "prime_lift" then
@@ -1671,18 +1425,29 @@ procedure cached_projective_permutation(
     ~reduced_to_permutation,
     ~permutation_to_reduced
 )
-    base_field := order_data`base_field;
-    quaternion_algebra := order_data`quaternion_algebra;
-    principal_basis := order_data`principal_basis;
     reduced_key := Eltseq(reduced_element);
 
+    if Type(class_key_data) eq Rec and
+       assigned class_key_data`mode and
+       class_key_data`mode eq "natural_split_prime" then
+        if not IsDefined(reduced_to_permutation, reduced_key) then
+            // Preserve the established interface: this routine returns the
+            // inverse of the homomorphic projective action.
+            representative_permutation :=
+                natural_split_prime_action_permutation(
+                    reduced_element,
+                    class_key_data
+                )^-1;
+            reduced_to_permutation[reduced_key] := representative_permutation;
+            permutation_to_reduced[representative_permutation] := reduced_key;
+        end if;
+
+        cached_permutation := reduced_to_permutation[reduced_key];
+        return;
+    end if;
+
     if not IsDefined(reduced_to_permutation, reduced_key) then
-        source_coordinates := coordinates_in_basis(
-            base_field,
-            quaternion_algebra,
-            principal_basis,
-            source_element
-        );
+        source_coordinates := OrderCoordinates(order_data, source_element);
         representative_key := projective_class_key(
             reduced_element,
             scalars,
@@ -1725,43 +1490,42 @@ procedure cached_projective_permutation(
 end procedure;
 
 
-// Record projective lifts of unit-group generators.
-function unit_lifts_in_projective_group(order_data, reduced_algebra, reduction_map, scalar_units)
-    reduced_unit_lifts := AssociativeArray();
-
-    for i in [1..Ngens(order_data`unit_group)] do
-        unit_u := primitive_integral_order_representative(
-            order_data,
-            order_data`unit_map(order_data`unit_group.i)
-        );
-        ok, unit_reduced, message := reduce_order_element_mod_modulus(
-            order_data,
-            unit_u,
-            reduction_map,
-            reduced_algebra
-        );
-
-        if not ok then
-            error message;
-        end if;
-
-        for scalar in scalar_units do
-            reduced_unit_lifts[scalar * unit_reduced] := unit_u;
-        end for;
-    end for;
-
-    return reduced_unit_lifts;
+// At a ramified prime P the projective normalizer meets G in the classes of
+// even reduced-norm valuation; odd valuation picks out the other coset,
+// which generates the ramified Z/2Z extension.  These helpers locate one
+// stored representative of that coset.
+function normalizer_element_has_odd_valuation_at_prime(order_data, normalizer_element, prime_ideal)
+    norm_ideal := Norm(normalizer_element) * order_data`integer_ring;
+    return (Valuation(norm_ideal, prime_ideal) mod 2) ne 0;
 end function;
 
 
-// Recover the unique principal two-sided O-ideal above a ramified prime P.
+function normalizer_representative_odd_at_prime(order_data, prime_ideal)
+    for normalizer_element in order_data`normalizer_elements do
+        if normalizer_element_has_odd_valuation_at_prime(order_data, normalizer_element, prime_ideal) then
+            return true, normalizer_element;
+        end if;
+    end for;
+
+    return false, false;
+end function;
+
+
+function normalizer_odd_representative_exists_at_prime(order_data, prime_ideal)
+    found, representative := normalizer_representative_odd_at_prime(order_data, prime_ideal);
+    return found;
+end function;
+
+
+// Recover a normalizer element with odd valuation above a ramified prime P.
+// In the class-one case this is the unique principal two-sided generator.
+// For non-class-one orders, a single ramified
+// two-sided ideal need not be principal, so we fall back to any stored global
+// normalizer representative with odd P-valuation; that is enough for the local
+// ramified extension model.
 function ramified_base_generator(order_data, prime_ideal)
     if order_data`order_type lt 2 then
         error "The ramified extension is only defined for Eichler orders.";
-    end if;
-
-    if order_data`class_number ne 1 then
-        error "The ramified extension is only implemented for class-number-one Eichler orders.";
     end if;
 
     quaternion_order := order_data`quaternion_order;
@@ -1780,7 +1544,7 @@ function ramified_base_generator(order_data, prime_ideal)
             continue;
         end if;
 
-        generator := primitive_integral_order_representative(order_data, generator);
+        generator := ord_primitive_integral_representative(order_data, generator);
         normalized_generator := normalize_quaternion_element(quaternion_algebra, generator);
         normalized_key := Sprint(Eltseq(normalized_generator));
 
@@ -1790,9 +1554,18 @@ function ramified_base_generator(order_data, prime_ideal)
         end if;
     end for;
 
+    if #candidate_generators eq 0 then
+        found_normalizer, normalizer_element :=
+            normalizer_representative_odd_at_prime(order_data, prime_ideal);
+
+        if found_normalizer then
+            return ord_primitive_integral_representative(order_data, normalizer_element);
+        end if;
+    end if;
+
     if #candidate_generators ne 1 then
         error Sprintf(
-            "Expected exactly one principal two-sided generator above %o, but found %o candidates.",
+            "Expected a principal two-sided generator or a stored odd-valuation normalizer representative above %o, but found %o principal candidates.",
             prime_ideal,
             #candidate_generators
         );
@@ -1804,7 +1577,6 @@ end function;
 
 // Reduce the basis-conjugation action x -> a x a^-1 to O / P^k O.
 function ramified_conjugation_basis_images(order_data, conjugating_element, reduction_map)
-    base_field := order_data`base_field;
     integer_ring := order_data`integer_ring;
     quaternion_algebra := order_data`quaternion_algebra;
     principal_basis := order_data`principal_basis;
@@ -1816,12 +1588,7 @@ function ramified_conjugation_basis_images(order_data, conjugating_element, redu
             quaternion_algebra!conjugating_element *
             quaternion_algebra!basis_element *
             inverse_element;
-        image_coordinates := coordinates_in_basis(
-            base_field,
-            quaternion_algebra,
-            principal_basis,
-            conjugated_basis_element
-        );
+        image_coordinates := OrderCoordinates(order_data, conjugated_basis_element);
         reduced_coordinates := [];
 
         for coordinate in image_coordinates do
@@ -1903,25 +1670,19 @@ end function;
 function left_label_multiplication_permutation(projective_unit_group, group_element, identity_index)
     num_classes := #projective_unit_group;
     symmetric_group := Sym(num_classes);
-    point_group_elements := [Identity(projective_unit_group) : i in [1..num_classes]];
+    permutation_entries := [0 : i in [1..num_classes]];
     filled_points := {};
 
     for model_element in projective_unit_group do
         point_index := identity_index^model_element;
-        point_group_elements[point_index] := model_element;
+        permutation_entries[point_index] :=
+            identity_index^(group_element * model_element);
         Include(~filled_points, point_index);
     end for;
 
     if #filled_points ne num_classes then
         error "The projective unit model did not act regularly on its projective classes.";
     end if;
-
-    permutation_entries := [];
-
-    for point_index in [1..num_classes] do
-        product_element := group_element * point_group_elements[point_index];
-        Append(~permutation_entries, identity_index^product_element);
-    end for;
 
     return symmetric_group!permutation_entries;
 end function;
@@ -1947,8 +1708,6 @@ procedure ramified_extension_data(
     ~permutation_to_reduced
 )
     quaternion_algebra := order_data`quaternion_algebra;
-    base_field := order_data`base_field;
-    principal_basis := order_data`principal_basis;
     ramified_generator_squared := false;
     ramified_generator_square_reduction_source := false;
     reduced_square_unit := false;
@@ -1971,10 +1730,10 @@ procedure ramified_extension_data(
 
     ramified_generator_squared := (quaternion_algebra!ramified_generator_element)^2;
     ramified_generator_square_is_scalar := &and[
-        coordinates_in_basis(base_field, quaternion_algebra, principal_basis, ramified_generator_squared)[i] eq 0 :
+        OrderCoordinates(order_data, ramified_generator_squared)[i] eq 0 :
         i in [2..4]
     ];
-    ramified_generator_square_reduction_source := primitive_integral_order_representative(
+    ramified_generator_square_reduction_source := ord_primitive_integral_representative(
         order_data,
         ramified_generator_squared
     );
@@ -2086,14 +1845,10 @@ procedure print_ramified_extension_relation_failure(
     projective_unit_group,
     permutation_to_reduced
 )
-    base_field := order_data`base_field;
     quaternion_algebra := order_data`quaternion_algebra;
-    principal_basis := order_data`principal_basis;
     ramified_generator_squared := (quaternion_algebra!ramified_generator_element)^2;
-    ramified_generator_squared_coordinates := coordinates_in_basis(
-        base_field,
-        quaternion_algebra,
-        principal_basis,
+    ramified_generator_squared_coordinates := OrderCoordinates(
+        order_data,
         ramified_generator_squared
     );
     ramified_generator_squared_is_scalar :=
@@ -2122,66 +1877,6 @@ procedure print_ramified_extension_relation_failure(
     end for;
 
     print "[PUG debug] No generator mismatch was found even though the square relation failed.";
-end procedure;
-
-
-// Record which reduced projective classes come from the stored normalizer.
-function normalizer_lifts_in_projective_group(order_data, reduced_algebra, reduction_map, scalar_units)
-    normalizer_reduced_lifts := AssociativeArray();
-
-    for normalizer_element in order_data`normalizer_elements do
-        ok, reduced_element, message := reduce_order_element_mod_modulus(
-            order_data,
-            normalizer_element,
-            reduction_map,
-            reduced_algebra
-        );
-
-        if not ok then
-            error message;
-        end if;
-
-        for scalar in scalar_units do
-            normalizer_reduced_lifts[scalar * reduced_element] := normalizer_element;
-        end for;
-    end for;
-
-    return normalizer_reduced_lifts;
-end function;
-
-
-// Convert reduced projective lifts into permutations of the projective model.
-procedure append_permutations_from_reduced_lifts(
-    order_data,
-    reduced_algebra,
-    class_representatives,
-    class_index_by_key,
-    scalars,
-    class_key_data,
-    reduced_lifts,
-    label,
-    ~permutations,
-    ~reduced_to_permutation,
-    ~permutation_to_reduced
-)
-    for reduced_element in Keys(reduced_lifts) do
-        cached_permutation := false;
-        cached_projective_permutation(
-            order_data,
-            reduced_algebra,
-            class_representatives,
-            class_index_by_key,
-            scalars,
-            class_key_data,
-            reduced_element,
-            reduced_lifts[reduced_element],
-            label,
-            ~cached_permutation,
-            ~reduced_to_permutation,
-            ~permutation_to_reduced
-        );
-        Append(~permutations, cached_permutation);
-    end for;
 end procedure;
 
 
@@ -2247,7 +1942,7 @@ procedure normalizer_image_permutation(
         error "A split-prime normalizer representative did not reduce to a projective unit.";
     end if;
 
-    unit_component := primitive_integral_order_representative(
+    unit_component := ord_primitive_integral_representative(
         order_data,
         quaternion_algebra!normalizer_element * (quaternion_algebra!ramified_generator_element)^-1
     );
@@ -2287,7 +1982,10 @@ procedure normalizer_image_permutation(
 end procedure;
 
 
-// Store complement classes as the subgroup-class records returned by Magma.
+// Search in a faithful reduced-degree copy, then return the complements in
+// the caller's group.  Conjugacy classes and intersections are preserved
+// exactly by the isomorphism, and the smaller degree keeps Magma's
+// Subgroups enumeration tractable.
 function complement_classes(group_g, subgroup_k)
     group_order := #group_g;
     subgroup_order := #subgroup_k;
@@ -2296,8 +1994,21 @@ function complement_classes(group_g, subgroup_k)
         return [];
     end if;
 
+    if subgroup_order eq 1 then
+        return [rec<computed_complement_class_format | subgroup := group_g>];
+    end if;
+
+    search_group, reduction_map := DegreeReduction(group_g);
+    if #Kernel(reduction_map) ne 1 or #search_group ne group_order then
+        error "Degree reduction did not give a faithful copy of the ambient group.";
+    end if;
+    search_subgroup := reduction_map(subgroup_k);
+    if #search_subgroup ne subgroup_order then
+        error "Degree reduction changed the localized image order.";
+    end if;
+
     target_order := group_order div subgroup_order;
-    subgroup_classes := Subgroups(group_g : OrderEqual := target_order);
+    subgroup_classes := Subgroups(search_group : OrderEqual := target_order);
     complements := [];
 
     for subgroup_class in subgroup_classes do
@@ -2309,8 +2020,18 @@ function complement_classes(group_g, subgroup_k)
             continue;
         end if;
 
-        if #(complement_subgroup meet subgroup_k) eq 1 then
-            Append(~complements, subgroup_class);
+        if #(complement_subgroup meet search_subgroup) eq 1 then
+            original_subgroup := complement_subgroup @@ reduction_map;
+            if #original_subgroup ne target_order or
+               #(original_subgroup meet subgroup_k) ne 1 then
+                error "A reduced complement did not pull back exactly.";
+            end if;
+            Append(
+                ~complements,
+                rec<computed_complement_class_format |
+                    subgroup := original_subgroup
+                >
+            );
         end if;
     end for;
 
@@ -2324,34 +2045,18 @@ function normal_complement_classes(group_g, complement_list)
 end function;
 
 
-// Build G = (O / P^k O)^* / (R / P^k)^* together with the unit and normalizer images.
-function build_projective_unit_group(
+// Build G = (O / P^k O)^* / (R / P^k)^* and, for Eichler orders, the image
+// of the projective normalizer (inside G at split primes, inside the doubled
+// extension W at ramified primes).
+function FiniteQuotient(
     order_data,
     prime_ideal,
     k :
-    Print := 1,
-    time_limit_seconds := 0,
-    max_projective_quotient_seconds := 0,
-    max_reduced_unit_seconds := 0,
-    compute_complements := true
+    Print := 0
 )
     Print := validate_print_level(Print);
-    time_limit_seconds := validate_time_limit_seconds(time_limit_seconds);
-    max_projective_quotient_seconds := validate_estimated_time_control(
-        max_projective_quotient_seconds,
-        "max_projective_quotient_seconds"
-    );
-    max_reduced_unit_seconds := validate_estimated_time_control(
-        max_reduced_unit_seconds,
-        "max_reduced_unit_seconds"
-    );
-    if Type(compute_complements) ne BoolElt then
-        error "compute_complements must be true or false.";
-    end if;
     integer_ring := order_data`integer_ring;
     quaternion_algebra := order_data`quaternion_algebra;
-    validate_number_field(order_data`base_field);
-
     prime_ideal := normalize_prime_ideal(integer_ring, prime_ideal);
     if Type(k) ne RngIntElt or k lt 1 then
         error "k must be an integer >= 1.";
@@ -2369,21 +2074,6 @@ function build_projective_unit_group(
     expected_scalar_unit_count := expected_scalar_unit_order(prime_ideal, k);
     expected_reduced_unit_count := projective_formula_known select
         expected_projective_group_order * expected_scalar_unit_count else 0;
-    reduced_unit_time_limit_seconds := effective_stage_time_limit_seconds(
-        "reduced_units",
-        k,
-        time_limit_seconds,
-        max_projective_quotient_seconds,
-        max_reduced_unit_seconds
-    );
-    projective_quotient_time_limit_seconds := effective_stage_time_limit_seconds(
-        "projective_quotient",
-        k,
-        time_limit_seconds,
-        max_projective_quotient_seconds,
-        max_reduced_unit_seconds
-    );
-    timer := Cputime();
 
     if print_is_concise(Print) then
         print "";
@@ -2398,12 +2088,44 @@ function build_projective_unit_group(
         build_reduced_algebra(order_data, modulus_ideal);
     reduced_identity := reduced_order_identity(order_data, reduction_map, reduced_algebra);
 
+    // Model selection: k = 1 split uses the natural PGL(2, F) action on
+    // P^1(F); k = 2 split lifts prime-level classes through the reduction
+    // kernel; k = 1 ramified enumerates classes as unit points of P^3(F);
+    // every other case enumerates (O / P^k O)^* in full.
     use_split_prime_square_model :=
         k eq 2 and
         local_maximal_at_prime and
         (not prime_ramified_in_algebra);
+    use_natural_split_prime_model :=
+        k eq 1 and
+        local_maximal_at_prime and
+        (not prime_ramified_in_algebra);
+    use_prime_projective_point_model :=
+        k eq 1 and
+        local_maximal_at_prime and
+        prime_ramified_in_algebra;
 
-    if use_split_prime_square_model then
+    if use_natural_split_prime_model then
+        if not projective_formula_known then
+            error "The split prime quotient has no exact group-order formula.";
+        end if;
+        scalar_units := [a : a in reduced_base_ring | IsUnit(a)];
+        if #scalar_units ne expected_scalar_unit_count then
+            error "Scalar-unit count did not match the expected size of (R / P)^*.";
+        end if;
+        scalars := {a * reduced_identity : a in scalar_units};
+        num_classes := expected_projective_group_order;
+        reduced_units := [];
+        reduced_unit_membership_data := reduced_unit_isunit_lookup();
+        class_representatives := [];
+        class_index_by_key := AssociativeArray();
+        projective_unit_group, class_key_data := natural_split_prime_model(
+            reduced_algebra,
+            reduced_base_ring,
+            reduced_identity,
+            expected_projective_group_order
+        );
+    elif use_split_prime_square_model then
         prime_reduced_algebra, prime_reduced_base_ring, prime_reduction_map :=
             build_reduced_algebra(order_data, prime_ideal);
         prime_reduced_units := [unit_x : unit_x in prime_reduced_algebra | IsUnit(unit_x)];
@@ -2438,9 +2160,7 @@ function build_projective_unit_group(
 
         class_representatives,
         class_index_by_key,
-        class_key_data,
-        projective_class_skipped,
-        projective_class_estimated_seconds := split_prime_square_projective_class_data(
+        class_key_data := split_prime_square_projective_class_data(
             order_data,
             prime_ideal,
             reduced_algebra,
@@ -2450,57 +2170,39 @@ function build_projective_unit_group(
             scalar_units,
             scalars,
             expected_projective_group_order :
-            Print := Print,
-            time_limit_seconds := projective_quotient_time_limit_seconds
+            Print := Print
         );
-        estimated_reduced_unit_seconds := 0;
         num_classes := projective_formula_known select expected_projective_group_order else #class_representatives;
+    elif use_prime_projective_point_model then
+        class_key_data := false;
+        scalar_units := [a : a in reduced_base_ring | IsUnit(a)];
+        if #scalar_units ne expected_scalar_unit_count then
+            error "Scalar-unit count did not match the expected size of (R / P)^*.";
+        end if;
+        scalars := {a * reduced_identity : a in scalar_units};
+        num_classes := expected_projective_group_order;
+        reduced_units := [];
+        reduced_unit_membership_data := reduced_unit_isunit_lookup();
+        class_representatives,
+        class_index_by_key := projective_point_class_data(
+            reduced_algebra,
+            reduced_base_ring,
+            scalars,
+            num_classes :
+            Print := Print
+        );
     else
         class_key_data := false;
-        reduced_units, scalar_units, scalars, estimated_reduced_unit_seconds, reduced_unit_skipped :=
-            reduced_unit_data(
+        reduced_units, scalar_units, scalars := reduced_unit_data(
                 order_data,
                 modulus_ideal,
                 reduced_base_ring,
                 reduced_algebra,
                 reduction_map :
                 Print := Print,
-                time_limit_seconds := reduced_unit_time_limit_seconds,
                 expected_scalar_unit_order := expected_scalar_unit_count
             );
 
-        if reduced_unit_skipped then
-            if print_is_concise(Print) then
-                print "[PUG skip]", ideal_summary("modulus", modulus_ideal),
-                      "| task=reduced_units",
-                      "| estimated_seconds=", estimated_reduced_unit_seconds;
-            end if;
-
-            return rec<projective_unit_group_format |
-                order_data := order_data,
-                prime_ideal := prime_ideal,
-                prime_power_exponent := k,
-                modulus_ideal := modulus_ideal,
-                elapsed_seconds := Cputime(timer),
-                estimated_reduced_unit_seconds := estimated_reduced_unit_seconds,
-                estimated_permutation_seconds := 0,
-                prime_ramified_in_algebra := prime_ramified_in_algebra,
-                local_maximal_at_prime := local_maximal_at_prime,
-                formula_case := formula_case,
-                expected_projective_group_order := expected_projective_group_order,
-                expected_scalar_unit_order := expected_scalar_unit_count,
-                expected_reduced_unit_order := expected_reduced_unit_count,
-                reduced_base_ring := reduced_base_ring,
-                reduced_algebra := reduced_algebra,
-                reduction_map := reduction_map,
-                normalizer_image_defined := false,
-                ramified_extension_defined := false,
-                complements_computed := false,
-                skipped_due_to_estimate := true,
-                skipped_task_key := "reduced_units",
-                skipped_estimated_seconds := estimated_reduced_unit_seconds
-            >;
-        end if;
 
         if (#reduced_units mod #scalars) ne 0 then
             error "Reduced-unit count is not divisible by scalar count.";
@@ -2514,156 +2216,50 @@ function build_projective_unit_group(
             error "Reduced-unit count did not match the expected maximal-local formula.";
         end if;
         reduced_unit_membership_data := reduced_unit_lookup(reduced_units);
-        class_representatives, class_index_by_key, projective_class_skipped, projective_class_estimated_seconds := projective_class_data(
-            reduced_units,
-            scalars,
-            num_classes :
-            Print := Print,
-            time_limit_seconds := projective_quotient_time_limit_seconds
+        class_representatives, class_index_by_key := projective_class_data(
+            reduced_units, scalars, num_classes : Print := Print
         );
     end if;
 
-    if projective_class_skipped then
-        if print_is_concise(Print) then
-            print "[PUG skip]", ideal_summary("modulus", modulus_ideal),
-                  "| task=projective_classes",
-                  "| estimated_seconds=", projective_class_estimated_seconds;
-        end if;
 
-        return rec<projective_unit_group_format |
-            order_data := order_data,
-            prime_ideal := prime_ideal,
-            prime_power_exponent := k,
-            modulus_ideal := modulus_ideal,
-            elapsed_seconds := Cputime(timer),
-            estimated_reduced_unit_seconds := estimated_reduced_unit_seconds,
-            estimated_permutation_seconds := 0,
-            prime_ramified_in_algebra := prime_ramified_in_algebra,
-            local_maximal_at_prime := local_maximal_at_prime,
-            formula_case := formula_case,
-            expected_projective_group_order := expected_projective_group_order,
-            expected_scalar_unit_order := expected_scalar_unit_count,
-            expected_reduced_unit_order := expected_reduced_unit_count,
-            reduced_base_ring := reduced_base_ring,
-            reduced_algebra := reduced_algebra,
-            reduction_map := reduction_map,
-            reduced_unit_membership := reduced_unit_membership_data,
-            reduced_units := reduced_units,
-            scalar_units := scalar_units,
-            scalars := scalars,
-            class_index_by_key := class_index_by_key,
-            class_key_data := class_key_data,
-            normalizer_image_defined := false,
-            ramified_extension_defined := false,
-            complements_computed := false,
-            skipped_due_to_estimate := true,
-            skipped_task_key := "projective_classes",
-            skipped_estimated_seconds := projective_class_estimated_seconds
-        >;
-    end if;
-
-    if #class_representatives ne num_classes then
+    if not use_natural_split_prime_model and
+       #class_representatives ne num_classes then
         error "Failed to recover the expected number of projective classes.";
     end if;
 
-    // Seed the projective model from sampled generators and enlarge the cache
-    // later only for unit and normalizer classes that we actually use.
-    reduced_to_permutation,
-    permutation_to_reduced,
-    generator_permutations,
-    projective_unit_group,
-    estimated_permutation_seconds,
-    permutation_model_skipped := sampled_generator_permutation_data(
-        reduced_algebra,
-        class_representatives,
-        class_index_by_key,
-        scalars,
-        class_key_data,
-        reduced_identity :
-        Print := Print,
-        time_limit_seconds := projective_quotient_time_limit_seconds
-    );
-
-    if permutation_model_skipped then
-        if print_is_concise(Print) then
-            print "[PUG skip]", ideal_summary("modulus", modulus_ideal),
-                  "| task=permutation_model",
-                  "| estimated_seconds=", estimated_permutation_seconds;
-        end if;
-
-        return rec<projective_unit_group_format |
-            order_data := order_data,
-            prime_ideal := prime_ideal,
-            prime_power_exponent := k,
-            modulus_ideal := modulus_ideal,
-            elapsed_seconds := Cputime(timer),
-            estimated_reduced_unit_seconds := estimated_reduced_unit_seconds,
-            estimated_permutation_seconds := estimated_permutation_seconds,
-            prime_ramified_in_algebra := prime_ramified_in_algebra,
-            local_maximal_at_prime := local_maximal_at_prime,
-            formula_case := formula_case,
-            expected_projective_group_order := expected_projective_group_order,
-            expected_scalar_unit_order := expected_scalar_unit_count,
-            expected_reduced_unit_order := expected_reduced_unit_count,
-            reduced_base_ring := reduced_base_ring,
-            reduced_algebra := reduced_algebra,
-            reduction_map := reduction_map,
-            reduced_unit_membership := reduced_unit_membership_data,
-            reduced_units := reduced_units,
-            scalar_units := scalar_units,
-            scalars := scalars,
-            class_representatives := class_representatives,
-            class_index_by_key := class_index_by_key,
-            class_key_data := class_key_data,
-            normalizer_image_defined := false,
-            ramified_extension_defined := false,
-            complements_computed := false,
-            skipped_due_to_estimate := true,
-            skipped_task_key := "permutation_model",
-            skipped_estimated_seconds := estimated_permutation_seconds
-        >;
+    // Certify generators of the full projective model; cache additional class
+    // permutations later only when unit or normalizer images require them.
+    if use_natural_split_prime_model then
+        reduced_to_permutation := AssociativeArray();
+        permutation_to_reduced := AssociativeArray();
+        generator_permutations := [
+            projective_unit_group.i : i in [1..Ngens(projective_unit_group)]
+        ];
+    else
+        reduced_to_permutation,
+        permutation_to_reduced,
+        generator_permutations,
+        projective_unit_group := projective_generator_permutation_data(
+            reduced_algebra,
+            class_representatives,
+            class_index_by_key,
+            scalars,
+            class_key_data,
+            reduced_identity :
+            Print := Print
+        );
     end if;
+
 
     if #projective_unit_group ne num_classes then
         error "Generated projective group not of the correct size.";
     end if;
 
-    reduced_unit_lifts := unit_lifts_in_projective_group(
-        order_data,
-        reduced_algebra,
-        reduction_map,
-        scalar_units
-    );
-
-    unit_image_permutations := [];
-    append_permutations_from_reduced_lifts(
-        order_data,
-        reduced_algebra,
-        class_representatives,
-        class_index_by_key,
-        scalars,
-        class_key_data,
-        reduced_unit_lifts,
-        "unit",
-        ~unit_image_permutations,
-        ~reduced_to_permutation,
-        ~permutation_to_reduced
-    );
-    unit_image_subgroup := sub<projective_unit_group | unit_image_permutations>;
-    if compute_complements then
-        unit_complements := complement_classes(projective_unit_group, unit_image_subgroup);
-        normal_unit_complements := normal_complement_classes(projective_unit_group, unit_complements);
-    else
-        unit_complements := [];
-        normal_unit_complements := [];
-    end if;
-
     reduced_unit_lookup_data := reduced_unit_membership_data;
 
     // At split primes the normalizer image is computed inside G. At ramified
-    // primes of class-number-one Eichler orders we enlarge the ambient group to
-    // the doubled ramified extension generated by G and one ramified normalizer
-    // element.
+    // primes of Eichler orders we enlarge the ambient group to the doubled
+    // ramified extension generated by G and one ramified normalizer element.
     split_normalizer_image_defined :=
         (order_data`order_type ge 2) and
         (not prime_ramified_in_algebra) and
@@ -2671,15 +2267,10 @@ function build_projective_unit_group(
     ramified_extension_defined :=
         (order_data`order_type ge 2) and
         prime_ramified_in_algebra and
-        (order_data`class_number eq 1);
+        normalizer_odd_representative_exists_at_prime(order_data, prime_ideal);
     normalizer_image_defined := split_normalizer_image_defined or ramified_extension_defined;
     normalizer_ambient_group := false;
     normalizer_image_map := false;
-    normalizer_reduced_lifts := AssociativeArray();
-    normalizer_image_permutations := [];
-    normalizer_image_subgroup := false;
-    normalizer_complements := [];
-    normal_normalizer_complements := [];
     ramified_generator_element := false;
     ramified_generator_square_is_scalar := false;
     ramified_square_unit_permutation := false;
@@ -2761,12 +2352,6 @@ function build_projective_unit_group(
         end if;
     elif split_normalizer_image_defined then
         normalizer_ambient_group := projective_unit_group;
-        normalizer_reduced_lifts := normalizer_lifts_in_projective_group(
-            order_data,
-            reduced_algebra,
-            reduction_map,
-            scalar_units
-        );
     end if;
 
     if normalizer_image_defined then
@@ -2775,7 +2360,7 @@ function build_projective_unit_group(
             if print_is_concise(Print) then
                 print "[PUG] normalizer_generator_image", i, "/", Ngens(order_data`normalizer_group);
             end if;
-            generator_element := primitive_integral_order_representative(
+            generator_element := ord_primitive_integral_representative(
                 order_data,
                 order_data`normalizer_map(order_data`normalizer_group.i)
             );
@@ -2801,92 +2386,42 @@ function build_projective_unit_group(
             Append(~normalizer_generator_images, generator_image);
         end for;
 
-        normalizer_image_permutations := normalizer_generator_images;
-        normalizer_image_subgroup := sub<normalizer_ambient_group | normalizer_image_permutations>;
-        if compute_complements then
-            normalizer_complements := complement_classes(normalizer_ambient_group, normalizer_image_subgroup);
-            normal_normalizer_complements := normal_complement_classes(normalizer_ambient_group, normalizer_complements);
-        else
-            normalizer_complements := [];
-            normal_normalizer_complements := [];
-        end if;
-
         normalizer_image_map := hom<order_data`normalizer_group -> normalizer_ambient_group | normalizer_generator_images>;
     end if;
 
-    elapsed_seconds := Cputime(timer);
-
     if print_is_concise(Print) then
         if normalizer_image_defined then
-            print "[PUG] summary | elapsed_s=", elapsed_seconds,
+            print "[PUG] summary",
                   "| G_size=", #projective_unit_group,
-                  "| unit_image_size=", #unit_image_subgroup,
-                  "| unit_complements=", #unit_complements,
-                  "| normal_unit_complements=", #normal_unit_complements,
                   "| ramified_generator_square_is_scalar=", ramified_generator_square_is_scalar,
-                  "| normalizer_ambient_size=", #normalizer_ambient_group,
-                  "| normalizer_image_size=", #normalizer_image_subgroup,
-                  "| normalizer_complements=", #normalizer_complements,
-                  "| normal_normalizer_complements=", #normal_normalizer_complements;
+                  "| normalizer_ambient_size=", #normalizer_ambient_group;
         else
-            print "[PUG] summary | elapsed_s=", elapsed_seconds,
+            print "[PUG] summary",
                   "| G_size=", #projective_unit_group,
-                  "| unit_image_size=", #unit_image_subgroup,
-                  "| unit_complements=", #unit_complements,
-                  "| normal_unit_complements=", #normal_unit_complements,
-                  "| normalizer_image=undefined";
+                  "| normalizer_image=not_applicable";
         end if;
     end if;
 
     return rec<projective_unit_group_format |
         order_data := order_data,
-        prime_ideal := prime_ideal,
-        prime_power_exponent := k,
         modulus_ideal := modulus_ideal,
-        elapsed_seconds := elapsed_seconds,
-        estimated_reduced_unit_seconds := estimated_reduced_unit_seconds,
-        estimated_permutation_seconds := estimated_permutation_seconds,
-        prime_ramified_in_algebra := prime_ramified_in_algebra,
-        local_maximal_at_prime := local_maximal_at_prime,
-        formula_case := formula_case,
-        expected_projective_group_order := expected_projective_group_order,
-        expected_scalar_unit_order := expected_scalar_unit_count,
-        expected_reduced_unit_order := expected_reduced_unit_count,
         reduced_base_ring := reduced_base_ring,
         reduced_algebra := reduced_algebra,
         reduction_map := reduction_map,
         reduced_unit_membership := reduced_unit_membership_data,
         reduced_units := reduced_units,
-        scalar_units := scalar_units,
         scalars := scalars,
         class_representatives := class_representatives,
         class_index_by_key := class_index_by_key,
         class_key_data := class_key_data,
         reduced_to_permutation := reduced_to_permutation,
         permutation_to_reduced := permutation_to_reduced,
-        reduced_unit_lifts := reduced_unit_lifts,
         projective_unit_group := projective_unit_group,
-        unit_image_permutations := unit_image_permutations,
-        unit_image_subgroup := unit_image_subgroup,
-        unit_complements := unit_complements,
-        normal_unit_complements := normal_unit_complements,
         normalizer_image_defined := normalizer_image_defined,
         normalizer_ambient_group := normalizer_ambient_group,
         normalizer_image_map := normalizer_image_map,
-        normalizer_reduced_lifts := normalizer_reduced_lifts,
-        normalizer_image_permutations := normalizer_image_permutations,
-        normalizer_image_subgroup := normalizer_image_subgroup,
-        normalizer_complements := normalizer_complements,
-        normal_normalizer_complements := normal_normalizer_complements,
         ramified_extension_defined := ramified_extension_defined,
         ramified_generator := ramified_generator_element,
-        ramified_generator_square_is_scalar := ramified_generator_square_is_scalar,
-        ramified_square_unit_permutation := ramified_square_unit_permutation,
-        ramified_conjugation_permutation := ramified_conjugation_action,
-        ramified_generator_permutation := ramified_generator_action,
-        complements_computed := compute_complements,
-        skipped_due_to_estimate := false,
-        skipped_task_key := "",
-        skipped_estimated_seconds := 0
+        ramified_generator_permutation := ramified_generator_action
     >;
 end function;
