@@ -14,7 +14,7 @@ Mendel–Yu's Appendix A are generated from them.
 
 ## What is computed
 
-Let $B$ be one of the 49 totally definite quaternion algebras over a number field $K$ that admit a maximal order of class number one (as enumerated by Kirschmer–Voight [1]), and let $\mathfrak{O} \subseteq B$ be such an order. For $T \subseteq \operatorname{Ram}_f(B)$, write
+Let $B$ be one of the 49 totally definite quaternion algebras over a number field $K$ that admit a maximal order of class number one (as enumerated by Kirschmer–Voight [1]), and let $\mathfrak{O} \subseteq B$ be such an order. For $T \subseteq \mathrm{Ram}_f(B)$, write
 
 $$
 \Gamma_{\mathfrak{O},T} = \mathfrak{O}[1/T]^\times/\mathfrak{o}_K[1/T]^\times.
@@ -83,7 +83,7 @@ Across all 49 orders $\mathfrak{O}$ and every admissible $T$, the code determine
 For $Z \subseteq G_{\mathfrak{O}}[\mathfrak{a}]$, define
 
 $$
-\Theta_{\mathfrak{a}}(Z) = \left\{\operatorname{Nrd}_{\mathfrak{a}}(g) : g \in Z,\ \operatorname{trd}_{\mathfrak{a}}(g) = 0\right\} \subseteq \Delta_{\mathfrak{a}},
+\Theta_{\mathfrak{a}}(Z) = \left\{\mathrm{Nrd}_{\mathfrak{a}}(g) : g \in Z,\ \mathrm{trd}_{\mathfrak{a}}(g) = 0\right\} \subseteq \Delta_{\mathfrak{a}},
 $$
 
 where $\Delta_{\mathfrak{a}}$ is the group of square classes of $(\mathfrak{o}_K/\mathfrak{a})^\times$, and $\Theta_{\mathfrak{a}}$ abbreviates $\Theta_{\mathfrak{a}}(G_{\mathfrak{O}}[\mathfrak{a}])$. Set
@@ -97,9 +97,10 @@ $$
 > For each algebra, the code determines whether $1 \in \Theta_{\mathfrak{e}(\mathfrak{D}(B))}$. For each uninverted complement class at modulus $\mathfrak{C}$, it determines whether $1 \in \Theta_{\mathfrak{e}(\mathfrak{C})}(\widetilde H)$, where $\widetilde H = \pi_{\mathfrak{e}(\mathfrak{C}),\mathfrak{C}}^{-1}(H)$ under the natural map $G_{\mathfrak{O}}[\mathfrak{e}(\mathfrak{C})] \to G_{\mathfrak{O}}[\mathfrak{C}]$.
 
 > For a complementary triple $(T,\mathfrak{C},H)$ and eligible $S$, the code builds finite presentations of
+>
 > $$
-   \Gamma_{\mathfrak{O},S}(\mathfrak{C},H) = \pi_{\mathfrak{O},S_\ddag,\mathfrak{C}}^{-1}(H).
-$$
+> \Gamma_{\mathfrak{O},S}(\mathfrak{C},H) = \pi_{\mathfrak{O},S_\ddag,\mathfrak{C}}^{-1}(H).
+> $$
 
 (see Mendel–Yu, Sections 5.1–5.2)
 
