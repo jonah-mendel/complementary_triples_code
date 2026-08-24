@@ -1,4 +1,4 @@
-// Exact torsion obstructions from Section 7 of the paper.
+// Exact computation of torsion obstruction sets and stabilized moduli.
 //
 // This module assumes that orders.m, quotients.m, and classification.m have
 // already been loaded.  It deliberately contains no scheduling or reporting
@@ -109,7 +109,7 @@ end function;
 // Stabilized modulus and reduced trace/norm forms
 // ---------------------------------------------------------------------------
 
-// Section 7 defines
+// Mendel--Yu Lemma 47 and the definition following it give
 //   e(A) = product_{p | A} p^max(2 v_p(2) + 1, v_p(A)).
 // The factorization of A is the only source of exponents here.
 function StabilizedModulus(modulus_ideal)
@@ -347,8 +347,8 @@ procedure obs_scan_trace_zero_tuples(
 end procedure;
 
 
-// At a ramified prime where the order is maximal, the stabilized Section 7
-// exponent makes the ambient obstruction especially simple:
+// At a ramified prime where the order is maximal, the stabilized exponent
+// from Mendel--Yu Lemma 47 makes the ambient obstruction especially simple:
 //
 //     Theta_(p^k) = Delta_(p^k) \ {[-1]}.
 //
@@ -588,7 +588,7 @@ end function;
 
 
 // ---------------------------------------------------------------------------
-// Preimages of complements at the Section 7 modulus
+// Preimages of complements at the stabilized modulus
 // ---------------------------------------------------------------------------
 
 // The complement obstruction is defined only when the complementary ideal C
@@ -611,7 +611,7 @@ end function;
 
 
 // Build the implicit model of H_tilde described at LiftedComplementFormat,
-// enforcing the hypotheses of the Section 7 complement obstruction: the
+// enforcing the hypotheses of the complement obstruction: the
 // reduction to G[C] is injective (so the complement class is faithfully a
 // subgroup there), T is disjoint from the support of C, and C is a prime
 // power.  When e(C) strictly exceeds C, the scalar fibers of R/e(C) over

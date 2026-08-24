@@ -1,11 +1,12 @@
-// Fast, fail-closed verification of the paper-facing computations.
+// Fast, fail-closed audit of Mendel--Yu's paper-facing finite computations.
 //
 // Run from code/:
 //     magma verify.m
 //
-// This checks the normalized result files and then independently recomputes
-// the two displayed presentations, the quadratic torsion example, and the
-// Hurwitz--Lipschitz calculations.  The full 49-order classification is run by
+// This begins with a normalized-data integrity preflight and then recomputes
+// the finite calculations used in Lemmas 32--34, Theorems 35, 38, and 50,
+// Examples 19, 20, 37, and 49, Proposition 42, the stabilized modulus defined
+// after Lemma 47, and Section 7.2. The full 49-order classification is run by
 // reproduce.m; it is intentionally not repeated here.
 
 // Use the same exact-algorithm choices as the isolated reproduction workers.
@@ -348,7 +349,8 @@ function verify_factorization(integer_ring, value, context)
 end function;
 
 
-// Recompute the Section 7 obstruction modulus prime by prime: every prime p
+// Recompute the stabilized modulus defined after Mendel--Yu Lemma 47 prime by
+// prime: every prime p
 // dividing a must occur in e(a) with exponent max{v_p(a), 2*v_p(2) + 1}, and
 // no other prime may occur.  This checks StabilizedModulus independently of
 // its implementation in obstructions.m.
@@ -365,7 +367,7 @@ procedure verify_stabilized_formula(modulus_ideal)
         );
         verify(
             Valuation(stabilized, prime_ideal) eq expected_exponent,
-            "StabilizedModulus used an exponent other than the Section 7 exponent"
+            "StabilizedModulus disagrees with the exponent defined after Lemma 47"
         );
     end for;
 end procedure;
@@ -404,7 +406,7 @@ end function;
 // Normalized result contract
 // ---------------------------------------------------------------------------
 
-verify_section("normalized mathematical data");
+verify_section("classification-data integrity preflight");
 
 algebra_headers := [
     "order_index", "base_field_degree", "base_field_discriminant",
@@ -483,7 +485,7 @@ for row in algebra_rows do
     verify_stabilized_formula(algebra_discriminant);
     verify(
         obstruction_modulus eq StabilizedModulus(algebra_discriminant),
-        context cat " does not use the Section 7 discriminant modulus"
+        context cat " does not use the stabilized discriminant modulus"
     );
     verify(applicable eq (#actual_ramified gt 0), context cat " has the wrong obstruction applicability");
     verify(theta_size ge 0, context cat " has a negative obstruction-set size");
@@ -683,7 +685,7 @@ for row in complement_rows do
             context cat " theta_modulus_factorization"
         );
         verify_stabilized_formula(modulus);
-        verify(theta_modulus eq StabilizedModulus(modulus), context cat " does not use the Section 7 obstruction modulus");
+        verify(theta_modulus eq StabilizedModulus(modulus), context cat " does not use the stabilized obstruction modulus");
         theta_size := verify_integer(row["theta_size"], context cat " theta_size");
         theta_contains_one := verify_boolean(row["theta_contains_one"], context cat " theta_contains_one");
         verify(theta_size ge 0, context cat " has negative theta_size");
@@ -715,7 +717,9 @@ verify(
     "the complement rows do not cover exactly the complementary minimal ideals"
 );
 
-// Theorem-level consequences of the normalized classification.
+verify_section("Theorem 35, Theorem 38, Example 37, and Proposition 42");
+
+// Classification-wide consequences of the normalized data.
 for order_index in Keys(algebras) do
     if gamma_emptyset_orders[order_index] ne 1 or #ramified_primes[order_index] gt 1 then
         verify(
@@ -814,6 +818,8 @@ verify(
     "the unique composite case is not the stated T={p3}, N(C)=24 triple"
 );
 
+verify_section("proof of Theorem 50: rational torsion obstructions");
+
 // The rational torsion theorem uses one of the two applicable obstruction
 // sets for every nontrivial empty-T triple; D=13 handles the trivial family.
 for row in complement_rows do
@@ -852,13 +858,13 @@ print Sprintf(
 // Independent exact checks
 // ---------------------------------------------------------------------------
 
-verify_section("Section 7 exponent formula");
+verify_section("definition following Lemma 47: stabilized modulus");
 
 Q := RationalsAsNumberField();
 ZK := RingOfIntegers(Q);
 verify_stabilized_formula((2 * ZK)^2 * (3 * ZK)^4);
 verify(StabilizedModulus((2 * ZK)^2 * (3 * ZK)^4) eq (2 * ZK)^3 * (3 * ZK)^4,
-       "odd and dyadic rational factors do not follow the Section 7 formula");
+       "odd and dyadic rational factors do not follow the stabilized-modulus rule");
 
 quadratic_field<a> := QuadraticField(2);
 quadratic_integers := RingOfIntegers(quadratic_field);
@@ -870,8 +876,10 @@ verify(Valuation(StabilizedModulus(test_modulus), dyadic_prime) eq 5,
        "the ramified dyadic example does not use 2v_p(2)+1");
 verify(Valuation(StabilizedModulus(test_modulus), odd_prime) eq 2,
        "an odd-prime exponent was changed unnecessarily");
-print "[verify] Section 7 exponent formula passed";
+print "[verify] stabilized-modulus exponent rule passed";
 
+
+verify_section("Lemma 32: unit representatives of reduced norm one");
 
 // Build all paper orders once.  This independently checks the computational
 // unit-norm lemma and supplies the two displayed examples without naming table
@@ -975,7 +983,7 @@ end procedure;
 // Gamma_emptyset = 1, and every split prime of norm above #Gamma_T all
 // reduce injectively.  The loop also isolates the unique order with
 // Gamma_emptyset = 1 and two ramified primes for the exceptional case below.
-verify_section("finite split-prime injectivity assertions");
+verify_section("proofs of Lemma 33(ii), Lemma 34, and Theorem 35");
 empty_c2_case_count := 0;
 singleton_c2_case_count := 0;
 localized_nonidentity_count := 0;
@@ -1076,6 +1084,8 @@ print Sprintf(
     large_norm_candidate_count
 );
 
+
+verify_section("proof of Lemma 33(iii): distinct ramified primes");
 
 // Verify the sole distinct-ramified singleton case by its arithmetic
 // characterization and by the exact minimal-ideal traversal in both directions.
@@ -1267,7 +1277,7 @@ function verify_displayed_relation_labeling(
 end function;
 
 
-verify_section("displayed presentations and quadratic torsion example");
+verify_section("Examples 19, 20, and 49: presentations and torsion");
 
 // The rational displayed presentation: for the algebra of discriminant 5
 // over Q with level C = (5), the presentation at S = {2, 3} has generator
@@ -1547,7 +1557,7 @@ end function;
 // their Theta_4 sets, the four displayed Lipschitz complements and their
 // trace-zero distinction, and the kernel and lifting relations connecting
 // the two orders.
-verify_section("Hurwitz and Lipschitz computations");
+verify_section("Section 7.2: the Hurwitz and Lipschitz orders");
 
 hamilton<i_h, j_h> := QuaternionAlgebra<Q | -1, -1>;
 k_h := i_h * j_h;
@@ -1571,12 +1581,12 @@ verify(#hurwitz_mod_two`complement_classes eq 1 and
        "the trivial Hurwitz complement modulo two was not recovered");
 hurwitz_lifted_theta := TorsionObstruction(hurwitz_mod_two, 1);
 verify(hurwitz_lifted_theta`modulus_ideal eq StabilizedModulus(2 * hurwitz_integers),
-       "the Hurwitz lifted obstruction uses the wrong Section 7 modulus");
+       "the Hurwitz lifted obstruction uses the wrong stabilized modulus");
 verify(hurwitz_lifted_theta`theta_size eq 1 and not hurwitz_lifted_theta`theta_contains_one,
        "the Hurwitz lifted obstruction is not the asserted nonsquare class");
 
 // Independently enumerate the small dyadic ambient case, checking the exact
-// ramified-maximal formula used for larger Section 7 moduli.
+// ramified-maximal formula used for larger stabilized moduli.
 hurwitz_ambient_modulus := StabilizedModulus(2 * hurwitz_integers);
 hurwitz_ambient_theta := ObstructionAtModulus(hurwitz, hurwitz_ambient_modulus);
 hurwitz_ambient_form := obs_reduced_forms(hurwitz, hurwitz_ambient_modulus);
