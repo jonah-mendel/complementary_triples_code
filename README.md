@@ -96,10 +96,10 @@ $$
 
 > For each algebra, the code determines whether $1 \in \Theta_{\mathfrak{e}(\mathfrak{D}(B))}$. For each uninverted complement class at modulus $\mathfrak{C}$, it determines whether $1 \in \Theta_{\mathfrak{e}(\mathfrak{C})}(\widetilde H)$, where $\widetilde H = \pi_{\mathfrak{e}(\mathfrak{C}),\mathfrak{C}}^{-1}(H)$ under the natural map $G_{\mathfrak{O}}[\mathfrak{e}(\mathfrak{C})] \to G_{\mathfrak{O}}[\mathfrak{C}]$.
 
-> For a complementary triple $(T,\mathfrak{C},H)$ and eligible $S$, the code builds finite presentations of
+> For a finite set $S$ of primes, write $S_r = S \cap \mathrm{Ram}_f(B)$ and $S_0 = S \setminus S_r$ for its ramified and split parts. For a complementary triple $(T,\mathfrak{C},H)$ and eligible $S$, the code builds finite presentations of
 >
 > $$
-> \Gamma_{\mathfrak{O},S}(\mathfrak{C},H) = \pi_{\mathfrak{O},S_\ddag,\mathfrak{C}}^{-1}(H).
+> \Gamma_{\mathfrak{O},S}(\mathfrak{C},H) = \pi_{\mathfrak{O},S_r,\mathfrak{C}}^{-1}(H).
 > $$
 
 (see Mendel–Yu, Sections 5.1–5.2)
@@ -238,9 +238,9 @@ magma verify.m
 | Mendel–Yu location | Computation in `verify.m` |
 | --- | --- |
 | Lemma 32 | Rebuilds each of the 49 orders and checks that every representative of $\Gamma_{\emptyset}$ is a unit of reduced norm $1$. |
-| Proofs of Lemma 33(ii), Lemma 34, and Theorem 35 | For a nonidentity element of $\Gamma_T$, reduction at a split prime can fail to be injective only if that element becomes scalar. The $2\times2$ minors of its order-basis coordinates with the identity give a finite list of all such possible primes. The code reduces at every prime on this list in the cases used by the proofs: $\Gamma_{\emptyset}\cong C_2$, cyclic singleton-$T$, and $N\mathfrak{p}>\#\Gamma_T$. |
+| Proofs of Lemma 33(ii), Lemma 34, and Theorem 35 | For a nonidentity element of $\Gamma_T$, reduction at a split prime can fail to be injective only if that element becomes scalar. The $2\times2$ minors of its order-basis coordinates with the identity give a finite list of all such possible primes. The code reduces at every prime on this list in the cases used by the proofs: $\Gamma_{\emptyset}\cong C_2$, cyclic singleton-$T$, and $N(\mathfrak{p}) > |\Gamma_T|$. |
 | Proof of Lemma 33(iii) | Identifies the unique exceptional order over $\mathbb{Q}(\sqrt{2})$, with ramified-prime norms $2$ and $25$, and computes the two directed singleton-$T$ cases: the stated normal complement exists in one direction and no complement exists in the reverse direction. |
-| Theorem 35 | For each recorded minimal complementary ideal, checks that every prime factor is ramified or has norm at most $\#\Gamma_T$. In the equality case, it checks that the modulus is one prime to the first power and that $\Gamma_T$ is cyclic of order $2$, $3$, or $5$, as stated in the theorem. |
+| Theorem 35 | For each recorded minimal complementary ideal, checks that every prime factor is ramified or has norm at most $|\Gamma_T|$. In the equality case, it checks that the modulus is one prime to the first power and that $\Gamma_T$ is cyclic of order $2$, $3$, or $5$, as stated in the theorem. |
 | Theorem 38 | Counts the recorded nontrivial minimal complementary triples for each order and checks that the count is positive whenever $\Gamma_{\emptyset}\ne 1$ or the algebra has more than one finite ramified prime. |
 | Example 37 | Locates the real cubic field of discriminant $49$ with ramified-prime norm $7$, checks $\Gamma_{\emptyset}\cong D_7$ and $\Gamma_T\cong D_{14}$ for $T$ equal to that prime, and checks that its unique minimal triple has modulus of norm $27$. |
 | Proposition 42 | Checks that exactly one recorded complementary modulus is composite. It then identifies it as the real-cyclotomic field of discriminant $81$, ramified at the norm-$3$ prime, with $T$ that prime and modulus norm $24$. |
