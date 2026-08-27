@@ -29,7 +29,7 @@ G_{\mathfrak{O}}[\mathfrak{C}] = (\mathfrak{O}/\mathfrak{C}\mathfrak{O})^\times/
 $$
 
 When the order is clear, we drop the order subscript in both groups.
-When a prime $\mathfrak{p}$ ramifies in $B$, the completion $B_{\mathfrak{p}}$ is a division algebra. Let $\mathfrak{O}_{\mathfrak{p}}$ be its maximal order and $\mathfrak{P}$ the maximal ideal of $\mathfrak{O}_{\mathfrak{p}}$, so that $\mathfrak{P}^2 = \mathfrak{p}\mathfrak{O}_{\mathfrak{p}}$. Set
+When a prime $\mathfrak{p}$ ramifies in $B$, the completion $B_{\mathfrak{p}}$ is a division algebra. Let $\mathfrak{O}_{\mathfrak p}$ be its maximal order and $\mathfrak{P}$ the maximal ideal of $\mathfrak{O}_{\mathfrak p}$, so that $\mathfrak{P}^2 = \mathfrak{p}\mathfrak{O}_{\mathfrak p}$. Set
 
 $$
 U_{\mathfrak{p}}^k = \mathfrak{O}_{\mathfrak{p}}^\times/(\mathfrak{o}_{K,\mathfrak{p}}^\times \cdot (1 + \mathfrak{P}^{2k})),
@@ -83,13 +83,13 @@ Across all 49 orders $\mathfrak{O}$ and every admissible $T$, the code determine
 For $Z \subseteq G_{\mathfrak{O}}[\mathfrak{a}]$, define
 
 $$
-\Theta_{\mathfrak{a}}(Z) = \left\{\mathrm{Nrd}_{\mathfrak{a}}(g) : g \in Z,\ \mathrm{trd}_{\mathfrak{a}}(g) = 0\right\} \subseteq \Delta_{\mathfrak{a}},
+\Theta_{\mathfrak{a}}(Z) = \left\lbrace\mathrm{Nrd}_{\mathfrak{a}}(g) : g \in Z,\ \mathrm{trd}_{\mathfrak{a}}(g) = 0\right\rbrace \subseteq \Delta_{\mathfrak{a}},
 $$
 
-where $\Delta_{\mathfrak{a}}$ is the group of square classes of $(\mathfrak{o}_K/\mathfrak{a})^\times$, and $\Theta_{\mathfrak{a}}$ abbreviates $\Theta_{\mathfrak{a}}(G_{\mathfrak{O}}[\mathfrak{a}])$. Set
+where $\Delta_{\mathfrak{a}}$ is the group of square classes of the units of the quotient of $\mathfrak{o}_K$ by $\mathfrak a$, and $\Theta_{\mathfrak a}$ abbreviates $\Theta_{\mathfrak{a}}(G_{\mathfrak{O}}[\mathfrak{a}])$. Set
 
 $$
-\mathfrak{e}(\mathfrak{a}) = \prod_{\mathfrak{p} \mid \mathfrak{a}} \mathfrak{p}^{\max\{2v_{\mathfrak{p}}(2)+1,\,v_{\mathfrak{p}}(\mathfrak{a})\}}.
+\mathfrak{e}(\mathfrak{a}) = \prod_{\mathfrak{p} \mid \mathfrak{a}} \mathfrak{p}^{\max\{2v_{\mathfrak{p}}(2)+1,\quad v_{\mathfrak{p}}(\mathfrak{a})\}}.
 $$
 
 (see Mendel–Yu, Section 7.1)
@@ -276,7 +276,7 @@ minimal_ideals := MinimalInjectiveIdeals(order_data, []);
 classification := ClassifyOrder(order_data);
 ```
 
-The algebra $B = \left(\frac{-2,\,-5}{\mathbb{Q}}\right)$ of Mendel–Yu's
+The algebra $B = \left(\frac{-2, -5}{\mathbb{Q}}\right)$ of Mendel–Yu's
 introduction has discriminant $5$ and is entry $5$ of the Kirschmer table.  The
 following recovers its complementary triple at $T = \emptyset$ and
 $\mathfrak{C} = (5)$, whose unique complement class $H$ is normal of order $50$ with
