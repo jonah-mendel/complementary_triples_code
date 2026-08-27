@@ -17,34 +17,22 @@ Mendel–Yu's Appendix A are generated from them.
 Let $B$ be one of the 49 totally definite quaternion algebras over a number field $K$ that admit a maximal order of class number one (as enumerated by Kirschmer–Voight [1]), and let $\mathfrak{O} \subseteq B$ be such an order. For $T \subseteq \mathrm{Ram}_f(B)$, write
 
 $$
-\Gamma_{\mathfrak{O},T} = \mathfrak{O}[1/T]^\times/\mathfrak{o}_K[1/T]^\times.
+\Gamma_{\mathfrak{O},T} = \mathfrak{O}[1/T]^\times/\mathcal{O}_K[1/T]^\times.
 $$
 
 (see Mendel–Yu, Section 3.1)
 
-For an integral ideal $\mathfrak{C} \subseteq \mathfrak{o}_K$, put
+For an integral ideal $\mathfrak{C} \subseteq \mathcal{O}_K$, put
 
 $$
-G_{\mathfrak{O}}[\mathfrak{C}] = (\mathfrak{O}/\mathfrak{C}\mathfrak{O})^\times/(\mathfrak{o}_K/\mathfrak{C})^\times.
+G_{\mathfrak{O}}[\mathfrak{C}] = (\mathfrak{O}/\mathfrak{C}\mathfrak{O})^\times/(\mathcal{O}_K/\mathfrak{C})^\times.
 $$
 
 When the order is clear, we drop the order subscript in both groups.
-When a prime $\mathfrak{p}$ ramifies in $B$, the completion $B_{\mathfrak{p}}$ is a division algebra. For its maximal order and maximal ideal, write, respectively,
+When a prime $\mathfrak{p}$ ramifies in $B$, the completion $B_{\mathfrak{p}}$ is a division algebra. Write $\mathfrak{P}$ for the maximal ideal of its local maximal order; then $\mathfrak{P}^2$ is $\mathfrak{p}$ times that order. Set
 
 $$
-\mathfrak{O}_{\mathfrak p}, \qquad \mathfrak{P},
-$$
-
-so that
-
-$$
-\mathfrak{P}^2 = \mathfrak{p}\mathfrak{O}_{\mathfrak p}.
-$$
-
-Set
-
-$$
-U_{\mathfrak{p}}^k = \mathfrak{O}_{\mathfrak{p}}^\times/(\mathfrak{o}_{K,\mathfrak{p}}^\times \cdot (1 + \mathfrak{P}^{2k})),
+U_{\mathfrak{p}}^k = \mathfrak{O}_{\mathfrak{p}}^\times/(\mathcal{O}_{K,\mathfrak{p}}^\times \cdot (1 + \mathfrak{P}^{2k})),
 \qquad
 W_{\mathfrak{p}}^k = B_{\mathfrak{p}}^\times/(K_{\mathfrak{p}}^\times \cdot (1 + \mathfrak{P}^{2k})).
 $$
@@ -98,7 +86,7 @@ $$
 \Theta_{\mathfrak{a}}(Z) = \left\lbrace\mathrm{Nrd}_{\mathfrak{a}}(g) : g \in Z,\ \mathrm{trd}_{\mathfrak{a}}(g) = 0\right\rbrace \subseteq \Delta_{\mathfrak{a}},
 $$
 
-where $\Delta_{\mathfrak{a}}$ is the group of square classes of the units of the quotient of $\mathfrak{o}_K$ by $\mathfrak a$, and $\Theta_{\mathfrak a}$ abbreviates $\Theta_{\mathfrak{a}}(G_{\mathfrak{O}}[\mathfrak{a}])$. Set
+where $\Delta_{\mathfrak{a}}$ is the group of square classes of $(\mathcal{O}_K/\mathfrak{a})^\times$, and $\Theta_{\mathfrak a}$ abbreviates $\Theta_{\mathfrak{a}}(G_{\mathfrak{O}}[\mathfrak{a}])$. Set
 
 $$
 \mathfrak{e}(\mathfrak{a}) = \prod_{\mathfrak{p} \mid \mathfrak{a}} \mathfrak{p}^{\max\lbrace 2v_{\mathfrak{p}}(2)+1,\quad v_{\mathfrak{p}}(\mathfrak{a})\rbrace}.
@@ -129,7 +117,7 @@ where the second family ranges over the metacommutation pairs and one relation i
 The code and data name some objects that Mendel–Yu leave symbolic or
 unnamed:
 
-- A *localized group* is $\Gamma_{\mathfrak{O},T}$, written $\Gamma_T$ when the order is clear; the normalizers are $N_{\mathfrak{O},T}$ (Section 3.1). The case $T = \emptyset$ gives $\Gamma_{\mathfrak{O},\emptyset} = \mathfrak{O}^\times/\mathfrak{o}_K^\times$.
+- A *localized group* is $\Gamma_{\mathfrak{O},T}$, written $\Gamma_T$ when the order is clear; the normalizers are $N_{\mathfrak{O},T}$ (Section 3.1). The case $T = \emptyset$ gives $\Gamma_{\mathfrak{O},\emptyset} = \mathfrak{O}^\times/\mathcal{O}_K^\times$.
 - A *modulus* is an integral ideal $\mathfrak{C}$ used to define a reduction target. It is a complementary ideal when the associated reduction is injective and has a complement.
 - The *minimal injective ideals* of `minimal_ideals.csv` are the ideals
   minimal under divisibility with injective reduction, whether or not a
@@ -145,7 +133,7 @@ unnamed:
 | --- | --- |
 | `load.m` | Loads the arithmetic table and then the five modules below. |
 | `src/orders.m` | Builds order records from the arithmetic table, and provides the canonical ideal serialization and the relevant primes. |
-| `src/quotients.m` | Computes the finite quotients $G_{\mathfrak{O}}[\mathfrak{p}^k] = (\mathfrak{O}/\mathfrak{p}^k\mathfrak{O})^\times/(\mathfrak{o}_K/\mathfrak{p}^k)^\times$ and their normalizer images. |
+| `src/quotients.m` | Computes the finite quotients $G_{\mathfrak{O}}[\mathfrak{p}^k] = (\mathfrak{O}/\mathfrak{p}^k\mathfrak{O})^\times/(\mathcal{O}_K/\mathfrak{p}^k)^\times$ and their normalizer images. |
 | `src/classification.m` | Builds the groups $\Gamma_{\mathfrak{O},T}$, computes $\pi_{\mathfrak{O},T,\mathfrak{C}}$, and classifies the minimal injective ideals and their complement classes. |
 | `src/obstructions.m` | Computes the moduli $\mathfrak{e}(\mathfrak{a})$ and the torsion obstruction sets $\Theta_{\mathfrak{a}}(Z)$. |
 | `src/presentations.m` | Builds the presentations of the simply transitive groups $\Gamma_{\mathfrak{O},S}(\mathfrak{C},H)$. |
