@@ -2,7 +2,7 @@
 
 This repository contains the Magma code and computed data supporting the paper
 
-> Jonah Mendel and Jiahui Yu, *$S$-arithmetic groups acting simply transitively
+> Jonah Mendel and Jiahui Yu, *S-arithmetic groups acting simply transitively
 > on products of Bruhat–Tits trees*.
 
 Mendel–Yu classify the nontrivial minimal complementary triples of class
@@ -29,7 +29,19 @@ G_{\mathfrak{O}}[\mathfrak{C}] = (\mathfrak{O}/\mathfrak{C}\mathfrak{O})^\times/
 $$
 
 When the order is clear, we drop the order subscript in both groups.
-When a prime $\mathfrak{p}$ ramifies in $B$, the completion $B_{\mathfrak{p}}$ is a division algebra. Let $\mathfrak{O}_{\mathfrak p}$ be its maximal order and $\mathfrak{P}$ the maximal ideal of $\mathfrak{O}_{\mathfrak p}$, so that $\mathfrak{P}^2 = \mathfrak{p}\mathfrak{O}_{\mathfrak p}$. Set
+When a prime $\mathfrak{p}$ ramifies in $B$, the completion $B_{\mathfrak{p}}$ is a division algebra. For its maximal order and maximal ideal, write, respectively,
+
+$$
+\mathfrak{O}_{\mathfrak p}, \qquad \mathfrak{P},
+$$
+
+so that
+
+$$
+\mathfrak{P}^2 = \mathfrak{p}\mathfrak{O}_{\mathfrak p}.
+$$
+
+Set
 
 $$
 U_{\mathfrak{p}}^k = \mathfrak{O}_{\mathfrak{p}}^\times/(\mathfrak{o}_{K,\mathfrak{p}}^\times \cdot (1 + \mathfrak{P}^{2k})),
@@ -89,7 +101,7 @@ $$
 where $\Delta_{\mathfrak{a}}$ is the group of square classes of the units of the quotient of $\mathfrak{o}_K$ by $\mathfrak a$, and $\Theta_{\mathfrak a}$ abbreviates $\Theta_{\mathfrak{a}}(G_{\mathfrak{O}}[\mathfrak{a}])$. Set
 
 $$
-\mathfrak{e}(\mathfrak{a}) = \prod_{\mathfrak{p} \mid \mathfrak{a}} \mathfrak{p}^{\max\{2v_{\mathfrak{p}}(2)+1,\quad v_{\mathfrak{p}}(\mathfrak{a})\}}.
+\mathfrak{e}(\mathfrak{a}) = \prod_{\mathfrak{p} \mid \mathfrak{a}} \mathfrak{p}^{\max\lbrace 2v_{\mathfrak{p}}(2)+1,\quad v_{\mathfrak{p}}(\mathfrak{a})\rbrace}.
 $$
 
 (see Mendel–Yu, Section 7.1)
@@ -238,16 +250,16 @@ magma verify.m
 | Mendel–Yu location | Computation in `verify.m` |
 | --- | --- |
 | Lemma 32 | Rebuilds each of the 49 orders and checks that every representative of $\Gamma_{\emptyset}$ is a unit of reduced norm $1$. |
-| Proofs of Lemma 33(ii), Lemma 34, and Theorem 35 | For a nonidentity element of $\Gamma_T$, reduction at a split prime can fail to be injective only if that element becomes scalar. The $2\times2$ minors of its order-basis coordinates with the identity give a finite list of all such possible primes. The code reduces at every prime on this list in the cases used by the proofs: $\Gamma_{\emptyset}\cong C_2$, cyclic singleton-$T$, and $N(\mathfrak{p}) > |\Gamma_T|$. |
-| Proof of Lemma 33(iii) | Identifies the unique exceptional order over $\mathbb{Q}(\sqrt{2})$, with ramified-prime norms $2$ and $25$, and computes the two directed singleton-$T$ cases: the stated normal complement exists in one direction and no complement exists in the reverse direction. |
-| Theorem 35 | For each recorded minimal complementary ideal, checks that every prime factor is ramified or has norm at most $|\Gamma_T|$. In the equality case, it checks that the modulus is one prime to the first power and that $\Gamma_T$ is cyclic of order $2$, $3$, or $5$, as stated in the theorem. |
+| Proofs of Lemma 33(ii), Lemma 34, and Theorem 35 | For a nonidentity element of $\Gamma_T$, reduction at a split prime can fail to be injective only if that element becomes scalar. The $2\times2$ minors of its order-basis coordinates with the identity give a finite list of all such possible primes. The code reduces at every prime on this list in the cases used by the proofs: $\Gamma_{\emptyset}\cong C_2$, cyclic singleton $T$, and $N(\mathfrak{p}) > \lvert\Gamma_T\rvert$. |
+| Proof of Lemma 33(iii) | Identifies the unique exceptional order over $\mathbb{Q}(\sqrt{2})$, with ramified-prime norms $2$ and $25$, and computes the two directed singleton $T$ cases: the stated normal complement exists in one direction and no complement exists in the reverse direction. |
+| Theorem 35 | For each recorded minimal complementary ideal, checks that every prime factor is ramified or has norm at most $\lvert\Gamma_T\rvert$. In the equality case, it checks that the modulus is one prime to the first power and that $\Gamma_T$ is cyclic of order $2$, $3$, or $5$, as stated in the theorem. |
 | Theorem 38 | Counts the recorded nontrivial minimal complementary triples for each order and checks that the count is positive whenever $\Gamma_{\emptyset}\ne 1$ or the algebra has more than one finite ramified prime. |
 | Example 37 | Locates the real cubic field of discriminant $49$ with ramified-prime norm $7$, checks $\Gamma_{\emptyset}\cong D_7$ and $\Gamma_T\cong D_{14}$ for $T$ equal to that prime, and checks that its unique minimal triple has modulus of norm $27$. |
-| Proposition 42 | Checks that exactly one recorded complementary modulus is composite. It then identifies it as the real-cyclotomic field of discriminant $81$, ramified at the norm-$3$ prime, with $T$ that prime and modulus norm $24$. |
-| Definition following Lemma 47 | Evaluates $\mathfrak{e}(\mathfrak{a})$ at rational and $\mathbb{Q}(\sqrt{2})$ test ideals, including a ramified dyadic prime, to check the exponent $\max\{2v_{\mathfrak{p}}(2)+1,v_{\mathfrak{p}}(\mathfrak{a})\}$. |
-| Proof of Theorem 50 | Checks that the tabulated nontrivial rational triples with $T=\emptyset$ have at least one of the two recorded obstruction sets excluding $1$, and separately checks the discriminant-$13$ trivial family. |
-| Example 19 | Recomputes the complementary triple and presentation for discriminant $5$ at $S=\{2,3\}$, then matches the displayed generators, inverse relations, six square relations, and abelianization. |
-| Example 20 and Example 49 | Recomputes the two norm-$7$ generator sets, the sixteen displayed square relations, the abelianization, and the edge/face torsion checks. It also computes the norm-$9$ obstruction set and identifies its nonsquare class with $1+\sqrt{2}$. |
+| Proposition 42 | Checks that exactly one recorded complementary modulus is composite. It then identifies it as the real-cyclotomic field of discriminant $81$, ramified at the norm $3$ prime, with $T$ that prime and modulus norm $24$. |
+| Definition following Lemma 47 | Evaluates $\mathfrak{e}(\mathfrak{a})$ at rational and $\mathbb{Q}(\sqrt{2})$ test ideals, including a ramified dyadic prime, to check the exponent $\max\lbrace 2v_{\mathfrak{p}}(2)+1, v_{\mathfrak{p}}(\mathfrak{a})\rbrace$. |
+| Proof of Theorem 50 | Checks that the tabulated nontrivial rational triples with $T=\emptyset$ have at least one of the two recorded obstruction sets excluding $1$, and separately checks the discriminant $13$ trivial family. |
+| Example 19 | Recomputes the complementary triple and presentation for discriminant $5$ at $S=\lbrace 2,3\rbrace$, then matches the displayed generators, inverse relations, six square relations, and abelianization. |
+| Example 20 and Example 49 | Recomputes the two norm $7$ generator sets, the sixteen displayed square relations, the abelianization, and the edge/face torsion checks. It also computes the norm $9$ obstruction set and identifies its nonsquare class with $1+\sqrt{2}$. |
 | Section 7.2, “The Hurwitz order” | Recomputes the Hurwitz reductions modulo $2$ and $4$, their complements and obstruction sets, and the comparison with the Lipschitz order: the four displayed complements, the trace-zero distinction, the reduction kernel, and the stated lifting relation. |
 
 Several of the classification-wide checks above use the four CSV files. Before using them, `verify.m` checks their columns and canonical representations, then follows the links between them: each localized-group row names an algebra, each minimal-ideal row names a nonexcluded localized group, and each complement row names a minimal ideal declared to have a complement. It also checks that there are 49 algebra rows and that each order has one localized group for every subset of its ramified primes. This detects changes to the shipped data that would invalidate those checks.
@@ -281,7 +293,7 @@ introduction has discriminant $5$ and is entry $5$ of the Kirschmer table.  The
 following recovers its complementary triple at $T = \emptyset$ and
 $\mathfrak{C} = (5)$, whose unique complement class $H$ is normal of order $50$ with
 $1 \notin \Theta_{\mathfrak{e}(\mathfrak{C})}(\widetilde H)$, and then builds the
-presentation of $\Gamma_{\mathfrak{O},S}(\mathfrak{C},H)$ at $S = \{2, 3\}$:
+presentation of $\Gamma_{\mathfrak{O},S}(\mathfrak{C},H)$ at $S = \lbrace 2, 3\rbrace$:
 
 ```magma
 order_data := ClassOneOrder(5);
