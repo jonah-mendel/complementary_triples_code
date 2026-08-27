@@ -86,7 +86,7 @@ $$
 \Theta_{\mathfrak{a}}(Z) = \left\lbrace\mathrm{Nrd}_{\mathfrak{a}}(g) : g \in Z,\ \mathrm{trd}_{\mathfrak{a}}(g) = 0\right\rbrace \subseteq \Delta_{\mathfrak{a}},
 $$
 
-where $\Delta_{\mathfrak{a}}$ is the group of square classes of $(\mathcal{O}_K/\mathfrak{a})^\times$, and $\Theta_{\mathfrak a}$ abbreviates $\Theta_{\mathfrak{a}}(G_{\mathfrak{O}}[\mathfrak{a}])$. Set
+where $\Delta_{\mathfrak{a}}$ is the group of square classes of units modulo the ideal $\mathfrak a$, and $\Theta_{\mathfrak a}$ abbreviates $\Theta_{\mathfrak{a}}(G_{\mathfrak{O}}[\mathfrak{a}])$. Set
 
 $$
 \mathfrak{e}(\mathfrak{a}) = \prod_{\mathfrak{p} \mid \mathfrak{a}} \mathfrak{p}^{\max\lbrace 2v_{\mathfrak{p}}(2)+1,\quad v_{\mathfrak{p}}(\mathfrak{a})\rbrace}.
