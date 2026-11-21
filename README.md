@@ -1,314 +1,162 @@
-# Magma code for "S-arithmetic groups acting simply transitively on products of Bruhat–Tits trees"
+# Computations for *S-arithmetic groups acting simply transitively on products of Bruhat–Tits trees*
 
-This repository contains the Magma code and computed data supporting the paper
+This repository holds the Magma code and data behind the paper
 
-> Jonah Mendel and Jiahui Yu, *S-arithmetic groups acting simply transitively
-> on products of Bruhat–Tits trees*.
+> Jonah Mendel and Jiahui Yu, *S-arithmetic groups acting simply transitively on products of Bruhat–Tits trees*.
 
-Mendel–Yu classify the nontrivial minimal complementary triples of class
-number one maximal orders in totally definite quaternion algebras and use them
-to construct simply transitive lattices on products of Bruhat–Tits trees.  This
-repository holds the computations behind that classification: the four CSV
-files in `data/` are the complete computational output, and the tables of
-Mendel–Yu's Appendix A are generated from them.
+For each of the 49 maximal orders of class number one in totally definite quaternion algebras [1], the code finds every nontrivial minimal complementary triple and its torsion obstructions. The four CSV files in `data/` are the complete output, and the tables in Appendix A of the paper are generated from them. The code also recomputes the presentations and worked examples displayed in the paper.
 
-## What is computed
+## Quick start
 
-Let $B$ be one of the 49 totally definite quaternion algebras over a number field $K$ that admit a maximal order of class number one (as enumerated by Kirschmer–Voight [1]), and let $\mathfrak{O} \subseteq B$ be such an order. For $T \subseteq \mathrm{Ram}_f(B)$, write
-
-$$
-\Gamma_{\mathfrak{O},T} = \mathfrak{O}[1/T]^\times/\mathcal{O}_K[1/T]^\times.
-$$
-
-(see Mendel–Yu, Section 3.1)
-
-For an integral ideal $\mathfrak{C} \subseteq \mathcal{O}_K$, put
-
-$$
-G_{\mathfrak{O}}[\mathfrak{C}] = (\mathfrak{O}/\mathfrak{C}\mathfrak{O})^\times/(\mathcal{O}_K/\mathfrak{C})^\times.
-$$
-
-When the order is clear, we drop the order subscript in both groups.
-When a prime $\mathfrak{p}$ ramifies in $B$, the completion $B_{\mathfrak{p}}$ is a division algebra. Write $\mathfrak{P}$ for the maximal ideal of its local maximal order; then $\mathfrak{P}^2$ is $\mathfrak{p}$ times that order. Set
-
-$$
-U_{\mathfrak{p}}^k = \mathfrak{O}_{\mathfrak{p}}^\times/(\mathcal{O}_{K,\mathfrak{p}}^\times \cdot (1 + \mathfrak{P}^{2k})),
-\qquad
-W_{\mathfrak{p}}^k = B_{\mathfrak{p}}^\times/(K_{\mathfrak{p}}^\times \cdot (1 + \mathfrak{P}^{2k})).
-$$
-
-They fit into the split exact sequence
-
-$$
-1 \to U_{\mathfrak{p}}^k \to W_{\mathfrak{p}}^k \to C_2 \to 1.
-$$
-
-(see Mendel–Yu, Section 2.3.2)
-
-We can identify $U_{\mathfrak{p}}^k$ with $G_{\mathfrak{O}}[\mathfrak{p}^k]$.
-For an integral ideal $\mathfrak{C}$, set
-
-$$
-G_{\mathfrak{O},T}[\mathfrak{C}] = \prod_{\mathfrak{p} \mid \mathfrak{C}} G_{\mathfrak{O},T}[\mathfrak{p}^{v_{\mathfrak{p}}(\mathfrak{C})}],
-\qquad
-G_{\mathfrak{O},T}[\mathfrak{p}^k] =
-\begin{cases}
-W_{\mathfrak{p}}^k, & \mathfrak{p} \in T, \\
-G_{\mathfrak{O}}[\mathfrak{p}^k], & \mathfrak{p} \notin T.
-\end{cases}
-$$
-
-Reduction gives
-
-$$
-\pi_{\mathfrak{O},T,\mathfrak{C}}\colon \Gamma_{\mathfrak{O},T} \to G_{\mathfrak{O},T}[\mathfrak{C}]
-$$
-
-(see Mendel–Yu, Sections 5.1–5.2)
-
-A complementary triple is a triple $(T,\mathfrak{C},H)$ in which $\pi_{T,\mathfrak{C}}$ is injective and $H$ is complementary to $\pi_{T,\mathfrak{C}}(\Gamma_{\mathfrak{O},T})$; that is,
-
-$$
-H \cap \pi_{T,\mathfrak{C}}(\Gamma_{\mathfrak{O},T}) = 1,
-\qquad
-H \cdot \pi_{T,\mathfrak{C}}(\Gamma_{\mathfrak{O},T}) = G_{\mathfrak{O},T}[\mathfrak{C}].
-$$
-
-Such a complementary ideal is *uninverted* when $\mathfrak{C}$ is coprime to $T$, and *inverted* otherwise.
-A complementary triple $(T,\mathfrak{C},H)$ is *minimal* if, for every proper divisor $\mathfrak{a} \mid \mathfrak{C}$, the map $\pi_{T,\mathfrak{a}}$ is not injective on $\Gamma_T$ (see Mendel–Yu, Section 6.3).
-Across all 49 orders $\mathfrak{O}$ and every admissible $T$, the code determines every minimal complementary triple.
-
-> With $\mathfrak{O}$, $T$, and $\mathfrak{C}$ fixed, the code computes $\Gamma_T$, $G_T[\mathfrak{C}]$, and $\pi_{T,\mathfrak{C}}$, then determines all complementary triples $(T,\mathfrak{C},H)$.
-
-For $Z \subseteq G_{\mathfrak{O}}[\mathfrak{a}]$, define
-
-$$
-\Theta_{\mathfrak{a}}(Z) = \left\lbrace\mathrm{Nrd}_{\mathfrak{a}}(g) : g \in Z,\ \mathrm{trd}_{\mathfrak{a}}(g) = 0\right\rbrace \subseteq \Delta_{\mathfrak{a}},
-$$
-
-where $\Delta_{\mathfrak{a}}$ is the group of square classes of units modulo the ideal $\mathfrak a$, and $\Theta_{\mathfrak a}$ abbreviates $\Theta_{\mathfrak{a}}(G_{\mathfrak{O}}[\mathfrak{a}])$. Set
-
-$$
-\mathfrak{e}(\mathfrak{a}) = \prod_{\mathfrak{p} \mid \mathfrak{a}} \mathfrak{p}^{\max\lbrace 2v_{\mathfrak{p}}(2)+1,\quad v_{\mathfrak{p}}(\mathfrak{a})\rbrace}.
-$$
-
-(see Mendel–Yu, Section 7.1)
-
-> For each algebra, the code determines whether $1 \in \Theta_{\mathfrak{e}(\mathfrak{D}(B))}$. For each uninverted complement class at modulus $\mathfrak{C}$, it determines whether $1 \in \Theta_{\mathfrak{e}(\mathfrak{C})}(\widetilde H)$, where $\widetilde H = \pi_{\mathfrak{e}(\mathfrak{C}),\mathfrak{C}}^{-1}(H)$ under the natural map $G_{\mathfrak{O}}[\mathfrak{e}(\mathfrak{C})] \to G_{\mathfrak{O}}[\mathfrak{C}]$.
-
-> For a finite set $S$ of primes, write $S_r = S \cap \mathrm{Ram}_f(B)$ and $S_0 = S \setminus S_r$ for its ramified and split parts. For a complementary triple $(T,\mathfrak{C},H)$ and eligible $S$, the code builds finite presentations of
->
-> $$
-> \Gamma_{\mathfrak{O},S}(\mathfrak{C},H) = \pi_{\mathfrak{O},S_r,\mathfrak{C}}^{-1}(H).
-> $$
-
-(see Mendel–Yu, Sections 5.1–5.2)
-
-Specifically, for each split prime $\mathfrak{p} \in S$, the code assembles a set $A_{\mathfrak{p}}$ containing one generator for each of the $N(\mathfrak{p}) + 1$ maximal right ideals of $\mathfrak{O}$ of norm $\mathfrak{p}$, translating each generator by units of $\mathfrak{O}[1/T]$ until its reduction modulo $\mathfrak{C}$ lies in $H$. For each $a \in A_{\mathfrak{p}}$, there exists $\bar a \in A_{\mathfrak{p}}$ for which $a\bar a$ is central, and metacommutation assigns to each pair $a \in A_{\mathfrak{p}}$, $b \in A_{\mathfrak{q}}$ the unique $b' \in A_{\mathfrak{q}}$ and $a' \in A_{\mathfrak{p}}$ with $ab = b'a'$ up to the center. The group $\Gamma_{\mathfrak{O},S}(\mathfrak{C},H)$ has the presentation
-
-$$
-\left\langle \bigsqcup_{\mathfrak{p} \in S} A_{\mathfrak{p}} \;\middle|\; a\bar a = 1,\ ab = b'a' \right\rangle,
-$$
-
-where the second family ranges over the metacommutation pairs and one relation is retained for each geometric square. The construction follows Mendel–Yu, Section 3.2, with the relations coming from metacommutation in the style of Chari [3] and of Rungtanapirom, Stix, and Vdovina [4]. The two presentations displayed in Mendel–Yu are re-derived by `verify.m`.
-
-## Notation and terminology
-
-The code and data name some objects that Mendel–Yu leave symbolic or
-unnamed:
-
-- A *localized group* is $\Gamma_{\mathfrak{O},T}$, written $\Gamma_T$ when the order is clear; the normalizers are $N_{\mathfrak{O},T}$ (Section 3.1). The case $T = \emptyset$ gives $\Gamma_{\mathfrak{O},\emptyset} = \mathfrak{O}^\times/\mathcal{O}_K^\times$.
-- A *modulus* is an integral ideal $\mathfrak{C}$ used to define a reduction target. It is a complementary ideal when the associated reduction is injective and has a complement.
-- The *minimal injective ideals* of `minimal_ideals.csv` are the ideals
-  minimal under divisibility with injective reduction, whether or not a
-  complement exists at them; they therefore include slightly more than the
-  minimal complementary ideals classified in Section 6.3.
-- A *complement class* is a conjugacy class of complements $H$ in $G_{\mathfrak{O},T}[\mathfrak{C}]$, reported through one representative subgroup.
-- The *stabilized modulus* computed by `StabilizedModulus` is the ideal $\mathfrak{e}(\mathfrak{a})$ displayed above.
-- The *discriminant obstruction* of `algebras.csv` records whether $1 \in \Theta_{\mathfrak{e}(\mathfrak{D}(B))}$ for the discriminant $\mathfrak{D}(B)$ of $B$; the `theta` columns of `complements.csv` record $\Theta_{\mathfrak{e}(\mathfrak{C})}(\widetilde H)$ for the preimage $\widetilde H$ of a complement under $G_{\mathfrak{O}}[\mathfrak{e}(\mathfrak{C})] \to G_{\mathfrak{O}}[\mathfrak{C}]$ (Section 7.1).
-
-## Repository layout
-
-| Path | Role |
-| --- | --- |
-| `load.m` | Loads the arithmetic table and then the five modules below. |
-| `src/orders.m` | Builds order records from the arithmetic table, and provides the canonical ideal serialization and the relevant primes. |
-| `src/quotients.m` | Computes the finite quotients $G_{\mathfrak{O}}[\mathfrak{p}^k] = (\mathfrak{O}/\mathfrak{p}^k\mathfrak{O})^\times/(\mathcal{O}_K/\mathfrak{p}^k)^\times$ and their normalizer images. |
-| `src/classification.m` | Builds the groups $\Gamma_{\mathfrak{O},T}$, computes $\pi_{\mathfrak{O},T,\mathfrak{C}}$, and classifies the minimal injective ideals and their complement classes. |
-| `src/obstructions.m` | Computes the moduli $\mathfrak{e}(\mathfrak{a})$ and the torsion obstruction sets $\Theta_{\mathfrak{a}}(Z)$. |
-| `src/presentations.m` | Builds the presentations of the simply transitive groups $\Gamma_{\mathfrak{O},S}(\mathfrak{C},H)$. |
-| `reproduce.m` | Recomputes the four CSV files from scratch. |
-| `verify.m` | Checks the CSV files and re-derives the displayed computations of Mendel–Yu. |
-| `data/*.csv` | These files hold the computed classification (see "The data" below). |
-
-### Common commands
-
-Run `load "load.m";` before using these commands.
-
-| Command | What it does |
-| --- | --- |
-| `ClassOneOrderIndices()` | Returns the 49 row indices in Kirschmer's `OneClassGenera` table that describe maximal orders of class number one. Use an entry of this list as the argument of `ClassOneOrder`, or loop over the list to process every order in the classification. |
-| `ClassOneOrder(index)` | Builds the `order_data` record for one class-number-one maximal order. This record contains its number field, quaternion algebra, order, unit group, normalizer data, and arithmetic information. Pass it to the other commands below. |
-| `ClassifyOrder(order_data)` | For every subset $T$ of the finite ramified primes at which $\mathfrak{O}$ is locally maximal (an *admissible* $T$), constructs $\Gamma_T$ by adjoining the corresponding ramified normalizer generators to $\Gamma_{\emptyset}$. For each $T$, it computes every conjugacy class of complements $H$ at each minimal ideal $\mathfrak{C}$. Its three fields are parallel lists indexed by these $T$: `localized_groups[i]` records $T$, $\Gamma_T$, and its chosen generators; `exclusion_reasons[i]` is empty unless the paper's nontriviality definition excludes that $T$, in which case it gives the reason; and `poset_results[i]` is `false` when excluded and otherwise records the nontrivial minimal ideals and their matching reduction results, including all complement classes. |
-| `ReductionData(order_data, T, modulus_ideal)` | Studies one chosen pair $(T,\mathfrak{C})$. The result states whether $\pi_{T,\mathfrak{C}}$ is injective and gives its image in the finite target together with every complement class, including the normal ones. Use `T := []` for the unlocalized case. |
-| `PresentationForComplement(result, s_prime_inputs)` | Takes an injective result returned by `ReductionData` and builds a presentation for the group associated to a selected complement class. `s_prime_inputs` is a list of distinct split primes that are coprime to the modulus. The result includes the presented group, generators, and square relations. |
-| `FiniteQuotient(order_data, prime_ideal, exponent)` | Computes the one-prime-power quotient $G_{\mathfrak{O}}[\mathfrak{p}^k]$, together with the normalizer information needed at ramified primes. Use it to inspect a local factor before assembling a composite modulus. |
-
-Every public computation either returns its result or raises a Magma error; nothing fails silently. The interactive example below creates an `order_data` record and illustrates the first steps.
-
-## Requirements
-
-The code is tested with Magma V2.29-5.
-
-The sole external input is Markus Kirschmer's small-type-number table [2],
-from which the code selects the 49 class number one maximal orders.  The table is
-not included in this repository (it is Kirschmer's work and is not covered by
-this repository's license).  Download and extract it from this directory:
+The only external input is Markus Kirschmer's table of quaternion orders of small type number [2]. It is not part of this repository and not covered by its license. From this folder, download it into `data/`:
 
 ```
 curl -fsSL https://www.math.uni-bielefeld.de/~mkirschm/orders/smalltypenumber.tar.bz2 | tar -xjf - -C data
 ```
 
-The resulting file must be `data/smalltypenumber.m`, with SHA-256 checksum
+The file `data/smalltypenumber.m` should have SHA-256 checksum `2f044b3345c129523b19d7f2bca21bad06f48675132d8cbe984af220fb02b27b` (check with `shasum -a 256 data/smalltypenumber.m`).
 
-```
-2f044b3345c129523b19d7f2bca21bad06f48675132d8cbe984af220fb02b27b
-```
-
-(check with `shasum -a 256 data/smalltypenumber.m`).
-
-`reproduce.m` additionally requires a POSIX system (macOS or Linux): it runs
-each order in a separate Magma process via standard shell utilities.
-`verify.m` and interactive use are portable.
-
-## The data
-
-The four CSV files in `data/` record, per class number one maximal order:
-
-| File | One row per | Columns |
-| --- | --- | --- |
-| `algebras.csv` | algebra | `order_index`, `base_field_degree`, `base_field_discriminant`, `algebra_discriminant`, `ramified_primes`, `gamma_emptyset_order`, `discriminant_theta_applicable`, `discriminant_modulus_factorization`, `discriminant_theta_size`, `discriminant_theta_contains_one` |
-| `localized_groups.csv` | pair $(\mathfrak{O}, T)$ | `order_index`, `ramified_subset`, `gamma_order`, `gamma_type`, `exclusion_reason` |
-| `minimal_ideals.csv` | minimal injective ideal | `order_index`, `ramified_subset`, `modulus_norm`, `modulus_factorization`, `has_complement` |
-| `complements.csv` | complement class | `order_index`, `ramified_subset`, `modulus_norm`, `modulus_factorization`, `complement_index`, `complement_order`, `complement_is_normal`, `theta_applicable`, `theta_modulus_factorization`, `theta_size`, `theta_contains_one` |
-
-`order_index` is the row index in Kirschmer's table, so the datasets can be
-joined and traced back to the arithmetic input.  A nonempty
-`exclusion_reason` marks a pair $(\mathfrak{O}, T)$ excluded by Mendel–Yu's
-definition of a nontrivial triple (Section 6.3).  `gamma_type` is Magma's small-group
-identifier `<order, id>`; complement classes carry only their order, because
-groups of some occurring orders (512 among them) are beyond Magma's
-identification database.  `theta_applicable` is false exactly when a prime of
-$T$ divides $\mathfrak{C}$, in which case the obstruction is undefined and the remaining
-`theta` columns are empty.
-
-Serialization is canonical so that repeated runs produce byte-identical
-files: a prime ideal is written as its norm followed by a Hermite-normal-form
-basis matrix, sets and factorizations are sorted by that key, complement
-classes are sorted by their full exported row (classes with equal rows are
-genuinely indistinguishable in the recorded data and differ only in
-`complement_index`), and complete rows are sorted before publication.
-
-## Reproducing the data
-
-From this directory:
-
-```
-magma reproduce.m
-```
-
-This recreates the four CSV files by computing all 49 orders. Results are first written to a temporary staging area. The CSV files in `data/` are replaced only after every calculation and final consistency check succeeds, so a failed run leaves the existing datasets intact. If the `magma` executable is not on `PATH`, set `MAGMA_CMD`:
-
-```
-MAGMA_CMD=/Applications/Magma/magma /Applications/Magma/magma reproduce.m
-```
-
-The computation is deterministic (a fixed seed pins Magma's randomized
-algorithms), so a rerun under the same Magma version reproduces the shipped
-files byte for byte.
-
-## Verifying the paper's computations
+To check the paper's computations, which takes about 15 seconds:
 
 ```
 magma verify.m
 ```
 
-`verify.m` is a targeted audit of the computations used in Mendel–Yu. It does not rerun the complete 49-order classification; use `reproduce.m` when a fresh classification is required. The left column gives the corresponding numbering in the paper.
+To recompute the four CSV files, which takes about 45 minutes:
 
-| Mendel–Yu location | Computation in `verify.m` |
+```
+magma reproduce.m
+```
+
+The code is tested with Magma V2.30-1. `reproduce.m` runs each order in its own Magma process and needs a POSIX shell (macOS or Linux).
+
+## What the code computes
+
+The code follows the paper's notation. For a maximal order $\mathfrak{O}$ of class number one and a set $T$ of finite ramified primes of $B$:
+
+- $\Gamma_T = \mathfrak{O}[1/T]^\times/\mathcal{O}_K[1/T]^\times$ is the localized group (§3.1). The code builds it inside the normalizer of $\mathfrak{O}$, generated by the units and one generator of the two-sided prime above each $\mathfrak{p} \in T$.
+- $G_T[\mathfrak{C}]$ is the finite target of reduction modulo an integral ideal $\mathfrak{C}$, and $\pi_{T,\mathfrak{C}}\colon \Gamma_T \to G_T[\mathfrak{C}]$ is the reduction map (§5.1–5.2). At a prime of $T$ the local factor is the extension $W_{\mathfrak{p}}^k$ of $G[\mathfrak{p}^k]$ by $C_2$ (§2.3.2).
+- A complementary triple $(T, \mathfrak{C}, H)$ has $\pi_{T,\mathfrak{C}}$ injective and $H$ a complement of its image. For every $T$, the code finds the ideals $\mathfrak{C}$ that are minimal under divisibility with $\pi_{T,\mathfrak{C}}$ injective, and every conjugacy class of complements at each of them (§6.3).
+
+The torsion obstructions of §7.1 use the stabilized modulus $\mathfrak{e}(\mathfrak{a})$ and, for a subset $Z$ of $G[\mathfrak{a}]$, the set $\Theta_{\mathfrak{a}}(Z)$ of square classes of the reduced norms of the trace-zero elements of $Z$:
+
+$$
+\mathfrak{e}(\mathfrak{a}) = \prod_{\mathfrak{p} \mid \mathfrak{a}} \mathfrak{p}^{\max\lbrace 2v_{\mathfrak{p}}(2)+1,\ v_{\mathfrak{p}}(\mathfrak{a})\rbrace},
+\qquad
+\Theta_{\mathfrak{a}}(Z) = \lbrace [\mathrm{Nrd}(g)] : g \in Z,\ \mathrm{trd}(g) = 0 \rbrace.
+$$
+
+The code computes $\Theta$ at $\mathfrak{e}(\mathfrak{D})$ for the discriminant $\mathfrak{D}$ of each algebra. It also computes $\Theta$ at $\mathfrak{e}(\mathfrak{C})$ for the preimage $\widetilde H$ of each complement $H$, when $\mathfrak{C}$ is coprime to $T$.
+
+For a complementary triple and a set $S$ of split primes coprime to $\mathfrak{C}$, the code builds the presentation of $\Gamma_S(\mathfrak{C}, H)$ from §3.2. For each $\mathfrak{p} \in S$ it takes one generator of each maximal right ideal of norm $\mathfrak{p}$, chosen so that its reduction lies in $H$. The relations come from metacommutation [3, 4].
+
+The data differ from the paper's wording in two places. `minimal_ideals.csv` lists every minimal ideal with injective reduction, including the ones where no complement exists. Each conjugacy class of complements is recorded through one representative subgroup.
+
+## How the code is organized
+
+`load.m` loads the five files in `src/`, and each of them uses only the ones loaded before it. One computation passes through them in this order:
+
+1. `orders.m` builds the record of an order $\mathfrak{O}$ from Kirschmer's table: its algebra, a basis, its unit group and its normalizer (`ClassOneOrder`).
+2. `classification.m` builds $\Gamma_T$ inside the normalizer modulo $K^\times$, generated by the units and one generator of the two-sided prime above each $\mathfrak{p} \in T$ (`LocalizedGroups`).
+3. `quotients.m` builds $G[\mathfrak{p}^k]$ as a permutation group, together with $W_{\mathfrak{p}}^k$ at ramified primes (`FiniteQuotient`).
+4. `classification.m` reduces $\Gamma_T$ at each prime power of $\mathfrak{C}$, combines the results in a direct product, tests injectivity, and finds the complements (`ReductionData`). It then searches for the minimal ideals of every $T$ (`ClassifyOrder`).
+5. `obstructions.m` computes $\Theta$ for a complement or for the discriminant, and `presentations.m` builds the presentation for a complement.
+
+Most functions take or return one of three records: the order record from `ClassOneOrder`, the finite group from `FiniteQuotient`, and the reduction result from `ReductionData`.
+
+**The finite groups.** An element of $G[\mathfrak{p}^k]$ is a unit of $\mathfrak{O}/\mathfrak{p}^k\mathfrak{O}$ up to scalars. When $\mathfrak{p}$ is split, $k = 1$ and $\mathfrak{O}$ is maximal at $\mathfrak{p}$, the code uses $G = \mathrm{PGL}(2, F)$ acting on the $N(\mathfrak{p}) + 1$ points of $\mathbb{P}^1(F)$. Otherwise $G$ acts on itself by right multiplication, and each element is labeled by the coordinates of a unit, scaled so that its first unit coordinate is 1. In both cases the map from units of $\mathfrak{O}$ to $G$ is a homomorphism.
+
+**The search for minimal ideals.** A modulus is an exponent vector over the ramified primes and the split primes of norm at most $\lvert\Gamma_T\rvert$. The search visits these vectors breadth first, in order of total degree, and does not go above a vector at which reduction is injective, because reduction stays injective at its multiples. So each minimal ideal is found before any of its multiples. The search ends because reduction modulo a high enough power is injective on the finite group $\Gamma_T$.
+
+## The data
+
+| File | One row per |
 | --- | --- |
-| Lemma 32 | Rebuilds each of the 49 orders and checks that every representative of $\Gamma_{\emptyset}$ is a unit of reduced norm $1$. |
-| Proofs of Lemma 33(ii), Lemma 34, and Theorem 35 | For a nonidentity element of $\Gamma_T$, reduction at a split prime can fail to be injective only if that element becomes scalar. The $2\times2$ minors of its order-basis coordinates with the identity give a finite list of all such possible primes. The code reduces at every prime on this list in the cases used by the proofs: $\Gamma_{\emptyset}\cong C_2$, cyclic singleton $T$, and $N(\mathfrak{p}) > \lvert\Gamma_T\rvert$. |
-| Proof of Lemma 33(iii) | Identifies the unique exceptional order over $\mathbb{Q}(\sqrt{2})$, with ramified-prime norms $2$ and $25$, and computes the two directed singleton $T$ cases: the stated normal complement exists in one direction and no complement exists in the reverse direction. |
-| Theorem 35 | For each recorded minimal complementary ideal, checks that every prime factor is ramified or has norm at most $\lvert\Gamma_T\rvert$. In the equality case, it checks that the modulus is one prime to the first power and that $\Gamma_T$ is cyclic of order $2$, $3$, or $5$, as stated in the theorem. |
-| Theorem 38 | Counts the recorded nontrivial minimal complementary triples for each order and checks that the count is positive whenever $\Gamma_{\emptyset}\ne 1$ or the algebra has more than one finite ramified prime. |
-| Example 37 | Locates the real cubic field of discriminant $49$ with ramified-prime norm $7$, checks $\Gamma_{\emptyset}\cong D_7$ and $\Gamma_T\cong D_{14}$ for $T$ equal to that prime, and checks that its unique minimal triple has modulus of norm $27$. |
-| Proposition 42 | Checks that exactly one recorded complementary modulus is composite. It then identifies it as the real-cyclotomic field of discriminant $81$, ramified at the norm $3$ prime, with $T$ that prime and modulus norm $24$. |
-| Definition following Lemma 47 | Evaluates $\mathfrak{e}(\mathfrak{a})$ at rational and $\mathbb{Q}(\sqrt{2})$ test ideals, including a ramified dyadic prime, to check the exponent $\max\lbrace 2v_{\mathfrak{p}}(2)+1, v_{\mathfrak{p}}(\mathfrak{a})\rbrace$. |
-| Proof of Theorem 50 | Checks that the tabulated nontrivial rational triples with $T=\emptyset$ have at least one of the two recorded obstruction sets excluding $1$, and separately checks the discriminant $13$ trivial family. |
-| Example 19 | Recomputes the complementary triple and presentation for discriminant $5$ at $S=\lbrace 2,3\rbrace$, then matches the displayed generators, inverse relations, six square relations, and abelianization. |
-| Example 20 and Example 49 | Recomputes the two norm $7$ generator sets, the sixteen displayed square relations, the abelianization, and the edge/face torsion checks. It also computes the norm $9$ obstruction set and identifies its nonsquare class with $1+\sqrt{2}$. |
-| Section 7.2, “The Hurwitz order” | Recomputes the Hurwitz reductions modulo $2$ and $4$, their complements and obstruction sets, and the comparison with the Lipschitz order: the four displayed complements, the trace-zero distinction, the reduction kernel, and the stated lifting relation. |
+| `algebras.csv` | order: base field, discriminant, ramified primes, $\lvert\Gamma_\emptyset\rvert$, and the discriminant obstruction |
+| `localized_groups.csv` | pair $(\mathfrak{O}, T)$: $\lvert\Gamma_T\rvert$, its isomorphism type, and whether $T$ is excluded |
+| `minimal_ideals.csv` | minimal injective ideal $\mathfrak{C}$: its norm, its factorization, and whether a complement exists |
+| `complements.csv` | conjugacy class of complements: its order, whether it is normal, and its torsion obstruction |
 
-Several of the classification-wide checks above use the four CSV files. Before using them, `verify.m` checks their columns and canonical representations, then follows the links between them: each localized-group row names an algebra, each minimal-ideal row names a nonexcluded localized group, and each complement row names a minimal ideal declared to have a complement. It also checks that there are 49 algebra rows and that each order has one localized group for every subset of its ramified primes. This detects changes to the shipped data that would invalidate those checks.
+The files contain 49 orders, 109 localized groups, 278 minimal ideals and 224 complement classes. Notes on the columns:
 
-Use `verify.m` to audit the finite claims above. Use `reproduce.m` to regenerate the complete classification. A failed assertion stops the run, while a silent finish means that every listed check passed. Mendel–Yu contains the structural proofs.
+- `order_index` is the row of the order in Kirschmer's table, and joins the four files.
+- An ideal is written as its norm followed by its basis matrix in Hermite normal form, for example `5:[ 5 ]` over $\mathbb{Q}$. `ramified_subset` is the set $T$, and a factorization such as `2:[ 2 ]^3` lists prime powers.
+- `exclusion_reason` is empty unless $T$ is one of the two trivial cases that the paper excludes (§6.3).
+- `gamma_type` is Magma's small-group identifier `<order, id>`. Complements record only their order, because some of their orders, such as 512, are beyond Magma's database of small groups.
+- The `theta_*` columns are empty when a prime of $T$ divides $\mathfrak{C}$, because the obstruction is not defined there.
+- `complement_index` numbers the complements at one modulus. Magma's algorithms are partly randomized, so a new run of `reproduce.m` may list rows, complements, and primes of equal norm in a different order. The mathematical content does not change.
 
-## Interactive use
+## Checks against the paper
 
-Start Magma from this directory so the relative paths resolve:
+`verify.m` first reads the four CSV files and checks that they agree with each other and with Kirschmer's table. It then recomputes the following. It stops at the first failed check.
+
+| Paper | What `verify.m` checks |
+| --- | --- |
+| Lemma 32 | every element of $\Gamma_\emptyset$ has a representative of reduced norm 1 |
+| Lemma 33(ii), Lemma 34, Theorem 35 | reduction is injective at every split prime where a collision is possible, in the cases the proofs use |
+| Lemma 33(iii) | the order over $\mathbb{Q}(\sqrt{2})$ ramified at norms 2 and 25 has a complement in one direction and none in the other |
+| Theorem 35 | every split prime in a minimal complementary ideal has norm at most $\lvert\Gamma_T\rvert$, with the stated equality cases |
+| Theorem 38 | every order with $\Gamma_\emptyset \ne 1$ or two ramified primes has a nontrivial minimal triple |
+| Example 37 | $\Gamma_\emptyset \cong D_7$, $\Gamma_T \cong D_{14}$, and a unique minimal triple of norm 27 |
+| Proposition 42 | the only composite complementary modulus has norm 24, over the field of discriminant 81 |
+| Definition after Lemma 47 | the exponents of $\mathfrak{e}(\mathfrak{a})$ on test ideals over $\mathbb{Q}$ and $\mathbb{Q}(\sqrt{2})$ |
+| Theorem 50 | every rational triple with $T = \emptyset$ has an obstruction excluding 1; the discriminant 13 family |
+| Example 19 | the presentation for discriminant 5 at $S = \lbrace 2, 3 \rbrace$: generators, relations, abelianization |
+| Examples 20 and 49 | the presentation at the two primes of norm 7, its torsion checks, and the obstruction class of $1 + \sqrt{2}$ |
+| §7.2 | the Hurwitz order modulo 2 and 4, the Lipschitz order, and the maps between them |
+
+`verify.m` does not rerun the whole classification; `reproduce.m` does.
+
+## Using the functions
+
+Start Magma in this folder and load the code:
 
 ```
 magma
 load "load.m";
 ```
 
-For example:
-
-```magma
-indices := ClassOneOrderIndices();
-order_data := ClassOneOrder(indices[1]);
-P := RelevantSplitPrimes(order_data, 3)[1];
-
-quotient := FiniteQuotient(order_data, P, 1);
-localized_groups := LocalizedGroups(order_data);
-minimal_ideals := MinimalInjectiveIdeals(order_data, []);
-classification := ClassifyOrder(order_data);
-```
-
-The algebra $B = \left(\frac{-2, -5}{\mathbb{Q}}\right)$ of Mendel–Yu's
-introduction has discriminant $5$ and is entry $5$ of the Kirschmer table.  The
-following recovers its complementary triple at $T = \emptyset$ and
-$\mathfrak{C} = (5)$, whose unique complement class $H$ is normal of order $50$ with
-$1 \notin \Theta_{\mathfrak{e}(\mathfrak{C})}(\widetilde H)$, and then builds the
-presentation of $\Gamma_{\mathfrak{O},S}(\mathfrak{C},H)$ at $S = \lbrace 2, 3\rbrace$:
+The algebra $\left(\frac{-2, -5}{\mathbb{Q}}\right)$ of discriminant 5 from the paper's introduction is row 5 of Kirschmer's table. The following computes its complementary triple at $T = \emptyset$ and $\mathfrak{C} = (5)$, which has one complement class, and then the presentation at $S = \lbrace 2, 3 \rbrace$:
 
 ```magma
 order_data := ClassOneOrder(5);
 R := order_data`integer_ring;
 
-result := ReductionData(order_data, [], 5*R : Print := 0);
+result := ReductionData(order_data, [], 5*R);
 assert result`injective and #result`complement_classes eq 1;
 
-presentation := PresentationForComplement(result, [2*R, 3*R] : Print := 0);
+presentation := PresentationForComplement(result, [2*R, 3*R]);
+AbelianQuotientInvariants(presentation`gamma_group);
 ```
+
+| Function | Returns |
+| --- | --- |
+| `ClassOneOrderIndices()` | the rows of Kirschmer's table holding the 49 orders |
+| `ClassOneOrder(index)` | the record of one order: its field, algebra, unit group and normalizer |
+| `LocalizedGroups(order_data)` | $\Gamma_T$ for every admissible $T$, with $T = \emptyset$ first |
+| `MinimalComplementaryIdeals(order_data, T)` | the minimal ideals $\mathfrak{C}$ with $\pi_{T,\mathfrak{C}}$ injective, with their complements |
+| `ReductionData(order_data, T, C)` | $\pi_{T,\mathfrak{C}}$: its image, whether it is injective, and its complements as subgroups |
+| `ClassifyOrder(order_data)` | the nontrivial minimal ideals and their complements for every $T$ |
+| `FiniteQuotient(order_data, p, k)` | $G[\mathfrak{p}^k]$ as a permutation group, and $W_{\mathfrak{p}}^k$ at ramified primes |
+| `TorsionObstruction(result, i)` | $\Theta_{\mathfrak{e}(\mathfrak{C})}(\widetilde H)$ for complement `i` of a result |
+| `DiscriminantObstruction(order_data)` | $\Theta_{\mathfrak{e}(\mathfrak{D})}$ for the discriminant $\mathfrak{D}$ of the algebra |
+| `PresentationForComplement(result, S)` | the presentation of $\Gamma_S(\mathfrak{C}, H)$ |
+
+## Files
+
+| Path | Contents |
+| --- | --- |
+| `load.m` | loads Kirschmer's table and the five files in `src/`, described in "How the code is organized" |
+| `reproduce.m` | recomputes `data/*.csv`; `magma -b output_directory:=DIR reproduce.m` writes to `DIR` instead, and `MAGMA_CMD` names the Magma executable if `magma` is not on `PATH` |
+| `verify.m` | the checks against the paper |
 
 ## References
 
-1. Markus Kirschmer and John Voight, *Algorithmic enumeration of ideal
-   classes for quaternion orders*, SIAM Journal on Computing 39 (2010),
-   no. 5, 1714–1747.
-2. Markus Kirschmer, *Quaternion orders of type number one and two*,
-   <https://www.math.uni-bielefeld.de/~mkirschm/orders/>.
-3. Sara Chari, *Metacommutation of primes in central simple algebras*,
-   Journal of Number Theory 206 (2020), 296–309.
-4. Nithi Rungtanapirom, Jakob Stix, and Alina Vdovina, *Infinite series of
-   quaternionic 1-vertex cube complexes, the doubling construction, and
-   explicit cubical Ramanujan complexes*, International Journal of Algebra
-   and Computation 29 (2019), no. 6, 951–1007.
+1. Markus Kirschmer and John Voight, *Algorithmic enumeration of ideal classes for quaternion orders*, SIAM Journal on Computing 39 (2010), no. 5, 1714–1747.
+2. Markus Kirschmer, *Quaternion orders of type number one and two*, <https://www.math.uni-bielefeld.de/~mkirschm/orders/>.
+3. Sara Chari, *Metacommutation of primes in central simple algebras*, Journal of Number Theory 206 (2020), 296–309.
+4. Nithi Rungtanapirom, Jakob Stix, and Alina Vdovina, *Infinite series of quaternionic 1-vertex cube complexes, the doubling construction, and explicit cubical Ramanujan complexes*, International Journal of Algebra and Computation 29 (2019), no. 6, 951–1007.
 
 ## License
 
-The code and the data files in `data/*.csv` are released under the
-[MIT License](LICENSE).  `data/smalltypenumber.m` is Markus Kirschmer's work,
-obtained separately as described above, and is not covered by that license.
+The code and the files `data/*.csv` are released under the [MIT License](LICENSE). `data/smalltypenumber.m` is Kirschmer's work, obtained separately, and is not covered by that license.
