@@ -1,4 +1,4 @@
-// Torsion obstruction sets Theta and the stabilized modulus e(A) (Section 7.1).
+// Torsion obstruction sets Theta and the stabilized modulus e(A).
 //
 // Theta_A(Z) is the set of square classes in Delta_A = (R/A)^*/squares of the
 // reduced norms of the trace-zero elements of Z.

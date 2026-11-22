@@ -1,4 +1,4 @@
-// Presentations of Gamma_S(C, H) (Section 3.2). For each prime P in S, A[P] holds
+// Presentations of Gamma_S(C, H). For each prime P in S, A[P] holds
 // one generator for each of the N(P) + 1 maximal right ideals of norm P. The
 // relations are a * abar = 1 and one metacommutation relation a b a'^-1 b'^-1
 // per geometric square.

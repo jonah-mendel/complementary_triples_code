@@ -345,7 +345,7 @@ end function;
 // ---------------------------------------------------------------------------
 
 // The two trivial cases excluded by the paper's definition of a nontrivial
-// minimal complementary triple (Section 6.3), or "".
+// minimal complementary triple, or "".
 function ClassificationExclusionReason(gamma_emptyset, group)
     if gamma_emptyset`subgroup_order ne 1 then
         return "";

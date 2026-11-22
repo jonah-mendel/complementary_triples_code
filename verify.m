@@ -1,6 +1,7 @@
 // Checks the CSV files and recomputes the finite calculations cited in the
 // paper: Lemmas 32--34, Theorems 35, 38 and 50, Examples 19, 20, 37
-// and 49, Proposition 42, the definition after Lemma 47, and Section 7.2.
+// and 49, Proposition 42, the definition after Lemma 47, and the Hurwitz and
+// Lipschitz orders.
 // Run from code/: magma verify.m.  The full classification is in reproduce.m.
 
 load "load.m";
@@ -906,9 +907,9 @@ function verify_complement_of_type(complements, type_string)
 end function;
 
 
-// Section 7.2: Hurwitz order modulo 2 and 4 (complements H1, H2, H3 and their
+// Hurwitz order modulo 2 and 4 (complements H1, H2, H3 and their
 // Theta sets), Lipschitz order modulo 2 and 4, and the maps between them.
-verify_section("Section 7.2: the Hurwitz and Lipschitz orders");
+verify_section("the Hurwitz and Lipschitz orders");
 
 hamilton<i_h, j_h> := QuaternionAlgebra<Q | -1, -1>;
 k_h := i_h * j_h;
